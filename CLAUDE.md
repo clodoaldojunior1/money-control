@@ -13,8 +13,15 @@ estrutura.**
 - **MUI v9** para tudo. O design system vive em `src/theme/` — cor nova entra em
   `tokens.js`, nunca hex solto no componente
 - Estado global em `src/context/AppDataProvider.jsx`, consumido via `useAppData()`
-- **Dados 100% mockados e em memória** (`src/data/seed.js`). Backend NestJS é o
-  próximo passo planejado
+- **Formulários com React Hook Form**, dentro de cada sheet (o provider não
+  guarda estado de formulário). Componentes MUI se ligam via os wrappers em
+  `src/components/lash-studio/ui/form/`
+- **Dados 100% mockados e em memória** (`src/data/seed.js`). O próximo passo é
+  uma **API NestJS separada** — decidida assim porque ela também vai servir um
+  app mobile nativo no futuro. Por isso **Server Actions estão fora** (viraram
+  proxy nesse arranjo; ver seção 6.5 do ARCHITECTURE)
+- **Quando a API existir, o cache de servidor será SWR** (decisão fechada).
+  Regra: dado do servidor é do SWR, dado que o usuário está digitando é do RHF
 - App de rota única (`/`); as 5 abas trocam por estado, não por navegação
 
 ## Armadilhas que já nos morderam
@@ -27,6 +34,8 @@ estrutura.**
    ordena diferente no SSR e no cliente → erro de hidratação.
 4. **Moeda sempre via `money()`/`BRL`**, nunca `toLocaleString` inline (locale
    divergente também quebra hidratação).
+5. **`useWatch`, nunca `watch`** do React Hook Form — `watch()` desabilita a
+   memoização do componente pelo React Compiler.
 
 ## Verificação
 
