@@ -1,7 +1,7 @@
 "use client";
 
-import { AppShell } from "../components/lash-studio/AppShell";
+import { Landing } from "../components/onboarding/Landing";
 
-export default function Page() {
-  return <AppShell />;
+export default function LandingPage() {
+  return <Landing />;
 }
