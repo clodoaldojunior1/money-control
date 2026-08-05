@@ -33,8 +33,13 @@ Tailwind está instalado como resíduo do `create-next-app` e **não é usado**.
 src/
 ├── app/                      Next.js App Router
 │   ├── layout.jsx            fontes + <Providers>, metadata, viewport
-│   ├── page.jsx              "use client" → renderiza <AppShell />
-│   └── providers.js          AppRouterCache > ColorMode > AppData
+│   ├── providers.js          AppRouterCache > ColorMode (global)
+│   ├── page.jsx              / → <Landing />
+│   ├── login/page.jsx        /login
+│   ├── cadastro/page.jsx     /cadastro
+│   └── app/
+│       ├── layout.jsx        envolve só o PWA com <AppDataProvider>
+│       └── page.jsx          /app → <AppShell />
 │
 ├── theme/                    Design system (fonte única de verdade visual)
 │   ├── tokens.js             tokens light/dark: cores, rampas, sombras, raios
@@ -47,6 +52,14 @@ src/
 │
 ├── data/
 │   └── seed.js               dados mockados + helpers (BRL, fmtDia, listas)
+│
+├── components/onboarding/    telas públicas
+│   ├── PublicShell.jsx       moldura centralizada (mesma largura do app)
+│   ├── Landing.jsx           hero, features, depoimento, planos, CTA
+│   ├── Login.jsx             / Register.jsx — formulários em RHF
+│   ├── AuthHeader.jsx        voltar + atalho para a outra tela
+│   ├── BrandMark.jsx         quadrado com a inicial da marca
+│   └── PasswordStrength.jsx  medidor de força (+ forcaDaSenha)
 │
 └── components/lash-studio/
     ├── AppShell.jsx          composition root: topbar, tabs, nav, FAB,
@@ -85,15 +98,31 @@ const t = custom.tokens;   // t.accent, t.accent2Ramp[700], t.shadow.md…
 
 **Regra:** cor nova → adicionar em `tokens.js`. Nunca hex solto no componente.
 
-### 3.2 Navegação por estado, não por rota
+### 3.2 Rotas públicas reais; abas do app por estado
 
-O app inteiro é **uma única rota** (`/`). As 5 abas trocam via `tab` no
-`AppDataProvider`. Isso mantém drawer, FAB, bottom sheet e snackbar com estado
-compartilhado e transições instantâneas — como no protótipo.
+Duas camadas diferentes, cada uma com o modelo que faz sentido:
+
+| Rota | Conteúdo | Provider |
+|---|---|---|
+| `/` | Landing | só tema |
+| `/login` | Entrar | só tema |
+| `/cadastro` | Criar conta | só tema |
+| `/app` | O PWA (5 abas) | tema + `AppDataProvider` |
+
+**As telas públicas são rotas de verdade** — landing precisa de URL para ser
+compartilhada e indexada, e login/cadastro precisam de endereço próprio.
+
+**Dentro de `/app`, as 5 abas continuam trocando por estado** (`tab` no
+`AppDataProvider`), o que mantém drawer, FAB, bottom sheet e snackbar
+compartilhando estado e trocando instantaneamente.
 
 Consequência aceita: as abas não são deep-linkáveis. Se isso passar a importar
-(compartilhar link, botão voltar do Android), migrar para rotas reais exige
-subir o shell para um `layout.jsx`.
+(compartilhar link de uma aba, botão voltar do Android), o caminho é
+transformá-las em segmentos sob `/app` e subir o shell para o
+`src/app/app/layout.jsx`, que já existe.
+
+O `AppDataProvider` vive nesse layout e **não** no root — as telas públicas não
+carregam o estado de domínio.
 
 ### 3.3 Um provider para todo o domínio
 
@@ -155,6 +184,28 @@ Timer de 4,2s limpo no `closeSheet` e nas trocas.
 
 ---
 
+### 3.6 O FAB é fixo e contextual
+
+O botão (+) fica **fixo na viewport**, nunca rola com o conteúdo. Como o app
+é centralizado com largura máxima, ele não pode ser um `position: fixed` solto:
+mora num wrapper fixo que repete a largura do container
+(`LARGURA_APP`, exportada do `AppShell`), com `pointerEvents: "none"` para não
+bloquear cliques — só o botão recebe eventos. A bottom nav e o snackbar seguem
+o mesmo padrão.
+
+A ação muda conforme a aba, definida em `SHEET_POR_ABA` no `AppDataProvider`:
+
+| Aba | Abre |
+|---|---|
+| Início | **Entrada** — a ação mais frequente de quem acabou de atender |
+| Entradas | Entrada |
+| Gastos | Gasto |
+| Materiais | Material |
+| Agenda | Agendamento |
+
+O rótulo do FAB (`FAB_LABEL` no `AppShell`) é chaveado **pelo tipo de sheet**,
+não pela aba, justamente para não divergir desse mapa.
+
 ## 4. Convenções obrigatórias
 
 ### 4.1 MUI v9 — só `sx`
@@ -198,7 +249,27 @@ const tipo = useWatch({ control, name: "tipo" });
 const [cost, qty] = useWatch({ control, name: ["cost", "qty"] });
 ```
 
-### 4.5 Formatação de moeda
+### 4.5 As rampas tonais invertem no tema escuro
+
+`accentRamp`, `accent2Ramp` e `neutral` vão de claro (100) a escuro (900) no
+tema claro e **na direção oposta** no escuro. Isso é proposital: um par
+`background: ramp[100] / color: ramp[800]` continua legível nos dois temas,
+porque os dois lados viram junto.
+
+A armadilha é usar **um lado da rampa com o outro fixo**:
+
+```jsx
+// ❌ no dark, accent2Ramp[800] é quase branco → texto branco em fundo branco
+sx={{ backgroundColor: t.accent2Ramp[800], color: "#eef4f9" }}
+
+// ✅ escolha o passo conforme o modo
+const azulProfundo = palette.mode === "dark" ? t.accent2Ramp[200] : t.accent2Ramp[800];
+```
+
+Já nos mordeu no card de depoimento da landing. Ao fixar uma cor literal de um
+lado, teste os dois temas.
+
+### 4.6 Formatação de moeda
 
 Sempre `money(n)` do `useAppData()` (ou `BRL` de `data/seed.js`). Nunca
 `toLocaleString` inline — locale divergente entre servidor e cliente também
@@ -299,7 +370,13 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
 
 - **Persistência local** — `localStorage` foi considerado e adiado; faz sentido
   como camada offline depois que a API existir
-- **Autenticação** — o drawer já tem perfil e "Sair" mockados
+- **Autenticação de verdade** — as telas `/login` e `/cadastro` existem e
+  validam os campos, mas **não autenticam**: qualquer formulário válido
+  navega para `/app`. Não há sessão, guarda de rota nem proteção de `/app`.
+  Entra junto com a API (6.1). O drawer também tem perfil e "Sair" mockados
+- **Persistência do tema** — o modo claro/escuro vive só em estado React:
+  sobrevive à navegação entre rotas, mas volta ao claro a cada recarga. As
+  telas públicas ainda não têm controle para alterná-lo
 - **PWA de fato** — manifest, service worker, instalação. Hoje é "mobile-first",
   não instalável
 - **Resolver de schema (zod/yup)** — hoje a validação usa regras nativas do

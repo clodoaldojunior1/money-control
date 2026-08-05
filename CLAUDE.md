@@ -22,7 +22,11 @@ estrutura.**
   proxy nesse arranjo; ver seção 6.5 do ARCHITECTURE)
 - **Quando a API existir, o cache de servidor será SWR** (decisão fechada).
   Regra: dado do servidor é do SWR, dado que o usuário está digitando é do RHF
-- App de rota única (`/`); as 5 abas trocam por estado, não por navegação
+- **Rotas:** `/` landing, `/login`, `/cadastro` (públicas, só tema) e `/app`
+  (o PWA, único envolvido pelo `AppDataProvider`). Dentro de `/app` as 5 abas
+  trocam por estado, não por navegação
+- **Login/cadastro validam mas não autenticam** — qualquer formulário válido
+  entra em `/app`. Não há sessão nem guarda de rota até a API existir
 
 ## Armadilhas que já nos morderam
 
@@ -36,6 +40,9 @@ estrutura.**
    divergente também quebra hidratação).
 5. **`useWatch`, nunca `watch`** do React Hook Form — `watch()` desabilita a
    memoização do componente pelo React Compiler.
+6. **As rampas tonais invertem no tema escuro.** `ramp[100]/ramp[800]` juntos
+   funcionam nos dois temas; um lado da rampa com uma cor literal do outro
+   lado, não — vira branco sobre branco no dark.
 
 ## Verificação
 
