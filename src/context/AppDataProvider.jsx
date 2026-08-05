@@ -18,6 +18,16 @@ const CAT_POR_SUB = { fixo: "Fixo", variavel: "Material", superfluo: "Supérfluo
 
 const byHour = (x, y) => x.hour.localeCompare(y.hour);
 
+// Qual sheet o FAB abre em cada aba. Na Home o padrão é registrar entrada —
+// é a ação mais frequente de quem acabou de atender uma cliente.
+const SHEET_POR_ABA = {
+  home: "entrada",
+  entradas: "entrada",
+  gastos: "gasto",
+  materiais: "material",
+  agenda: "agenda",
+};
+
 export function AppDataProvider({ children }) {
   const [items, setItems] = useState(() => [...ENTRADAS_SEED, ...GASTOS_SEED]);
   const [materiais, setMateriais] = useState(MATERIAIS_SEED);
@@ -204,12 +214,11 @@ export function AppDataProvider({ children }) {
     }));
   }, [editing, materiais, closeSheet, toast]);
 
+  const contextualSheet = SHEET_POR_ABA[tab] ?? "entrada";
+
   const openContextualSheet = useCallback(() => {
-    if (tab === "agenda") openAgenda(null);
-    else if (tab === "entradas") openEntrada(null);
-    else if (tab === "materiais") openMaterial(null);
-    else openGasto(null);
-  }, [tab, openAgenda, openEntrada, openMaterial, openGasto]);
+    openSheet(SHEET_POR_ABA[tab] ?? "entrada", null);
+  }, [tab, openSheet]);
 
   // — cross-cutting derived aggregates —
   const ledgerOut = useMemo(() => {
@@ -240,7 +249,8 @@ export function AppDataProvider({ children }) {
 
     tab, setTab,
     sheet, editing, isEdit: !!editing,
-    drawerOpen, openDrawer, closeDrawer, closeSheet, openContextualSheet,
+    drawerOpen, openDrawer, closeDrawer, closeSheet,
+    openContextualSheet, contextualSheet,
     filtro, setFiltro,
     snack, undo,
 
@@ -250,7 +260,8 @@ export function AppDataProvider({ children }) {
     openMaterial, saveMaterial, removeMaterial,
   }), [
     money, items, materiais, agenda, ledgerOut, entradas, totals,
-    tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet, openContextualSheet,
+    tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
+    openContextualSheet, contextualSheet,
     filtro, snack, undo,
     openGasto, saveGasto, removeGasto,
     openAgenda, saveAgenda, removeAgenda,

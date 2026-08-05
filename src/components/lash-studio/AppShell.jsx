@@ -63,11 +63,16 @@ const MENU_ITEMS = [
   { value: "config", label: "Configurações", icon: SettingsRoundedIcon, soon: true },
 ];
 
+// Chaveado pelo tipo de sheet (não pela aba) para não divergir do
+// SHEET_POR_ABA que define a ação no AppDataProvider.
 const FAB_LABEL = {
+  entrada: "Registrar entrada",
+  gasto: "Adicionar gasto",
+  material: "Novo material",
   agenda: "Agendar cliente",
-  entradas: "Registrar entrada",
-  materiais: "Novo material",
 };
+
+export const LARGURA_APP = 480;
 
 const TAB_COMPONENTS = {
   home: HomeTab,
@@ -90,12 +95,12 @@ export function AppShell() {
   const { isDark, toggleColorMode } = useColorMode();
   const {
     tab, setTab, sheet, closeSheet, drawerOpen, openDrawer, closeDrawer,
-    openContextualSheet, snack, undo,
+    openContextualSheet, contextualSheet, snack, undo,
   } = useAppData();
 
   const TabComponent = TAB_COMPONENTS[tab] ?? HomeTab;
   const SheetComponent = sheet ? SHEET_COMPONENTS[sheet] : null;
-  const fabLabel = FAB_LABEL[tab] ?? "Adicionar gasto";
+  const fabLabel = FAB_LABEL[contextualSheet];
 
   return (
     <Box sx={{ minHeight: "100dvh", backgroundColor: t.pageBg, display: "flex", justifyContent: "center" }}>
@@ -134,26 +139,50 @@ export function AppShell() {
         </Stack>
 
         {/* Content */}
-        <Box sx={{ flex: 1, overflowY: "auto", px: 2.75, pb: 16 }}>
+        {/* A página rola no documento; nav e FAB são fixos, então o padding
+            inferior reserva o espaço deles. */}
+        <Box sx={{ flex: 1, px: 2.75, pb: 20 }}>
           <TabComponent />
         </Box>
 
-        {/* FAB */}
-        <Fab
-          color="primary"
-          aria-label={fabLabel}
-          title={fabLabel}
-          onClick={openContextualSheet}
-          sx={{ position: "absolute", right: 20, bottom: 88 }}
-        >
-          <AddRoundedIcon />
-        </Fab>
-
-        {/* Bottom nav */}
+        {/* FAB — fixo na viewport, mas alinhado à direita do container
+            centralizado. O wrapper não captura cliques; só o botão. */}
         <Box
           sx={{
-            position: "sticky",
+            position: "fixed",
+            bottom: 88,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "100%",
+            maxWidth: LARGURA_APP,
+            px: 2.5,
+            display: "flex",
+            justifyContent: "flex-end",
+            pointerEvents: "none",
+            zIndex: (theme) => theme.zIndex.appBar + 1,
+          }}
+        >
+          <Fab
+            color="primary"
+            aria-label={fabLabel}
+            title={fabLabel}
+            onClick={openContextualSheet}
+            sx={{ pointerEvents: "auto" }}
+          >
+            <AddRoundedIcon />
+          </Fab>
+        </Box>
+
+        {/* Bottom nav — também fixa, para não sumir ao rolar listas longas */}
+        <Box
+          sx={{
+            position: "fixed",
             bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "100%",
+            maxWidth: LARGURA_APP,
+            zIndex: (theme) => theme.zIndex.appBar,
             borderTop: `1px solid ${t.divider}`,
             backgroundColor: `${t.bg}e0`,
             backdropFilter: "blur(14px)",
@@ -256,7 +285,10 @@ export function AppShell() {
           }
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
           sx={{
-            position: "absolute", left: 18, right: 18, bottom: 26,
+            position: "fixed", bottom: 88,
+            left: "50%", right: "auto",
+            transform: "translateX(-50%)",
+            width: "100%", maxWidth: LARGURA_APP - 36,
             "& .MuiSnackbarContent-root": {
               width: "100%", borderRadius: 22,
               backgroundColor: t.neutral[800], color: "#f5f8fa",
