@@ -1,100 +1,72 @@
 "use client";
 
-import Box from "@mui/material/Box";
+import { useForm } from "react-hook-form";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme } from "@mui/material/styles";
 import { useAppData } from "../../../context/AppDataProvider";
+import { SERVICES, DURATIONS, STATUSES, HOJE_ISO } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
-import { MoneyField } from "../ui/MoneyField";
-import { SegmentedControl } from "../ui/SegmentedControl";
-import { SelectableOption } from "../ui/SelectableOption";
-import { SERVICES, DURATIONS, STATUSES } from "../../../data/seed";
+import { FormTextField } from "../ui/form/FormTextField";
+import { FormSelectField } from "../ui/form/FormSelectField";
+import { FormMoneyField } from "../ui/form/FormMoneyField";
+import { FormSegmented } from "../ui/form/FormSegmented";
+import { FormOptionGroup } from "../ui/form/FormOptionGroup";
 
 const DUR_OPTIONS = DURATIONS.map((d) => ({ value: d, label: d }));
+const STATUS_OPTIONS = STATUSES.map((s) => ({ value: s, label: s }));
+
+const toDefaults = (ag) => (ag
+  ? { name: ag.name, service: ag.service, date: ag.date, hour: ag.hour, dur: ag.dur, status: ag.status, value: String(ag.value) }
+  : { name: "", service: "Volume russo", date: HOJE_ISO, hour: "09:00", dur: "2h", status: "Confirmado", value: "" });
 
 export function AgendaSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { aform, setAFormField, aTouched, aEdit, saveAgenda, removeAgenda, closeSheet } = useAppData();
+  const { editing, isEdit, saveAgenda, removeAgenda, closeSheet } = useAppData();
 
-  const nameError = aTouched && !aform.name.trim() ? "Informe o nome da cliente." : "";
+  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing) });
 
   return (
-    <SheetFrame title={aEdit ? "Editar agendamento" : "Novo agendamento"} onClose={closeSheet}>
-      <Box>
-        <TextField
-          label="Cliente"
-          placeholder="Nome da cliente"
-          value={aform.name}
-          onChange={(e) => setAFormField("name", e.target.value)}
-          fullWidth
-          autoFocus
-        />
-        <Typography sx={{ fontSize: 11.5, color: "error.main", minHeight: 16, mt: 0.5 }}>{nameError}</Typography>
-      </Box>
+    <SheetFrame title={isEdit ? "Editar agendamento" : "Novo agendamento"} onClose={closeSheet}>
+      <FormTextField
+        control={control}
+        name="name"
+        label="Cliente"
+        placeholder="Nome da cliente"
+        autoFocus
+        reserveHelperText
+        rules={{ validate: (v) => v.trim().length > 0 || "Informe o nome da cliente." }}
+      />
 
-      <TextField
-        select
-        label="Serviço"
-        value={aform.service}
-        onChange={(e) => setAFormField("service", e.target.value)}
-        fullWidth
-      >
-        {SERVICES.map((s) => (
-          <MenuItem key={s} value={s}>{s}</MenuItem>
-        ))}
-      </TextField>
+      <FormSelectField control={control} name="service" label="Serviço" options={SERVICES} />
 
       <Stack direction="row" spacing={1.5}>
-        <TextField
+        <FormTextField
+          control={control}
+          name="date"
           label="Data"
           type="date"
-          value={aform.date}
-          onChange={(e) => setAFormField("date", e.target.value)}
-          fullWidth
           slotProps={{ inputLabel: { shrink: true } }}
         />
-        <TextField
+        <FormTextField
+          control={control}
+          name="hour"
           label="Início"
           type="time"
-          value={aform.hour}
-          onChange={(e) => setAFormField("hour", e.target.value)}
-          fullWidth
           slotProps={{ inputLabel: { shrink: true } }}
         />
       </Stack>
 
-      <Box>
-        <Typography sx={{ fontSize: 12, mb: 0.75, color: "text.secondary" }}>Duração</Typography>
-        <SegmentedControl value={aform.dur} onChange={(v) => setAFormField("dur", v)} options={DUR_OPTIONS} fullWidth />
-      </Box>
+      <FormSegmented control={control} name="dur" label="Duração" options={DUR_OPTIONS} />
 
-      <Box>
-        <Typography sx={{ fontSize: 12, mb: 0.75, color: "text.secondary" }}>Valor do serviço</Typography>
-        <MoneyField size="md" value={aform.value} onChange={(v) => setAFormField("value", v)} />
-      </Box>
+      <FormMoneyField control={control} name="value" label="Valor do serviço" />
 
-      <Box>
-        <Typography sx={{ fontSize: 12, mb: 0.75, color: "text.secondary" }}>Status</Typography>
-        <Stack spacing={1}>
-          {STATUSES.map((s) => (
-            <SelectableOption
-              key={s}
-              label={s}
-              selected={aform.status === s}
-              onSelect={() => setAFormField("status", s)}
-            />
-          ))}
-        </Stack>
-      </Box>
+      <FormOptionGroup control={control} name="status" label="Status" options={STATUS_OPTIONS} />
 
       <Stack direction="row" spacing={1.25} sx={{ mt: 0.5 }}>
-        {aEdit && (
+        {isEdit && (
           <Button
             variant="outlined"
             color="error"
@@ -106,7 +78,7 @@ export function AgendaSheet() {
           </Button>
         )}
         <Button variant="outlined" onClick={closeSheet} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={saveAgenda} sx={{ flex: 2 }}>Salvar agendamento</Button>
+        <Button variant="contained" onClick={handleSubmit(saveAgenda)} sx={{ flex: 2 }}>Salvar agendamento</Button>
       </Stack>
     </SheetFrame>
   );

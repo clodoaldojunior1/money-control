@@ -1,95 +1,93 @@
 "use client";
 
-import Box from "@mui/material/Box";
+import { useForm, useWatch } from "react-hook-form";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme } from "@mui/material/styles";
 import { useAppData } from "../../../context/AppDataProvider";
+import { HOJE_ISO } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
-import { MoneyField } from "../ui/MoneyField";
-import { SegmentedControl } from "../ui/SegmentedControl";
-import { SelectableOption } from "../ui/SelectableOption";
+import { FormTextField } from "../ui/form/FormTextField";
+import { FormMoneyField } from "../ui/form/FormMoneyField";
+import { FormSegmented } from "../ui/form/FormSegmented";
+import { FormOptionGroup } from "../ui/form/FormOptionGroup";
 
 const TIPO_OPTIONS = [
   { value: "trabalho", label: "Trabalho" },
   { value: "pessoal", label: "Pessoal" },
 ];
 
-const SUBS = {
+const SUB_OPTIONS = {
   trabalho: [
-    { v: "fixo", label: "Fixo", hint: "Todo mês" },
-    { v: "variavel", label: "Variável", hint: "Materiais, extras" },
+    { value: "fixo", label: "Fixo", hint: "Todo mês" },
+    { value: "variavel", label: "Variável", hint: "Materiais, extras" },
   ],
   pessoal: [
-    { v: "superfluo", label: "Supérfluo", hint: "Pode cortar" },
-    { v: "necessario", label: "Necessário", hint: "Essencial" },
+    { value: "superfluo", label: "Supérfluo", hint: "Pode cortar" },
+    { value: "necessario", label: "Necessário", hint: "Essencial" },
   ],
 };
+
+const SUB_PADRAO = { trabalho: "variavel", pessoal: "necessario" };
+
+const toDefaults = (gasto) => (gasto
+  ? { valor: String(gasto.value), desc: gasto.title, tipo: gasto.tipo, sub: gasto.sub, data: HOJE_ISO }
+  : { valor: "", desc: "", tipo: "trabalho", sub: "variavel", data: HOJE_ISO });
 
 export function GastoSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { form, setFormField, touched, gEdit, saveGasto, removeGasto, closeSheet } = useAppData();
+  const { editing, isEdit, saveGasto, removeGasto, closeSheet } = useAppData();
 
-  const valorError = touched && !(parseFloat(form.valor) > 0) ? "Informe um valor maior que zero." : "";
-  const subs = SUBS[form.tipo];
+  const { control, handleSubmit, setValue } = useForm({
+    defaultValues: toDefaults(editing),
+  });
 
-  const setTipo = (tipo) => {
-    setFormField("tipo", tipo);
-    setFormField("sub", tipo === "trabalho" ? "variavel" : "necessario");
-  };
+  // useWatch (e não watch) para não desabilitar a memoização do React Compiler.
+  const tipo = useWatch({ control, name: "tipo" });
 
   return (
-    <SheetFrame title={gEdit ? "Editar gasto" : "Novo gasto"} onClose={closeSheet}>
-      <Box>
-        <MoneyField size="lg" value={form.valor} onChange={(v) => setFormField("valor", v)} autoFocus />
-        <Typography sx={{ fontSize: 11.5, color: "error.main", minHeight: 16, mt: 0.5 }}>{valorError}</Typography>
-      </Box>
-
-      <TextField
-        label="Descrição"
-        placeholder="Ex.: Cola Glue Pro 5ml"
-        value={form.desc}
-        onChange={(e) => setFormField("desc", e.target.value)}
-        fullWidth
+    <SheetFrame title={isEdit ? "Editar gasto" : "Novo gasto"} onClose={closeSheet}>
+      <FormMoneyField
+        control={control}
+        name="valor"
+        size="lg"
+        autoFocus
+        rules={{
+          required: "Informe um valor maior que zero.",
+          validate: (v) => parseFloat(v) > 0 || "Informe um valor maior que zero.",
+        }}
       />
 
-      <Box>
-        <Typography sx={{ fontSize: 12, mb: 0.75, color: "text.secondary" }}>Tipo</Typography>
-        <SegmentedControl value={form.tipo} onChange={setTipo} options={TIPO_OPTIONS} fullWidth />
-      </Box>
+      <FormTextField control={control} name="desc" label="Descrição" placeholder="Ex.: Cola Glue Pro 5ml" />
 
-      <Box>
-        <Typography sx={{ fontSize: 12, mb: 0.75, color: "text.secondary" }}>
-          {form.tipo === "trabalho" ? "Natureza do gasto de trabalho" : "Natureza do gasto pessoal"}
-        </Typography>
-        <Stack direction="row" spacing={1.25}>
-          {subs.map((o) => (
-            <SelectableOption
-              key={o.v}
-              label={o.label}
-              hint={o.hint}
-              selected={form.sub === o.v}
-              onSelect={() => setFormField("sub", o.v)}
-            />
-          ))}
-        </Stack>
-      </Box>
+      <FormSegmented
+        control={control}
+        name="tipo"
+        label="Tipo"
+        options={TIPO_OPTIONS}
+        onAfterChange={(next) => setValue("sub", SUB_PADRAO[next])}
+      />
 
-      <TextField
+      <FormOptionGroup
+        control={control}
+        name="sub"
+        label={tipo === "trabalho" ? "Natureza do gasto de trabalho" : "Natureza do gasto pessoal"}
+        options={SUB_OPTIONS[tipo]}
+        direction="row"
+      />
+
+      <FormTextField
+        control={control}
+        name="data"
         label="Data"
         type="date"
-        value={form.data}
-        onChange={(e) => setFormField("data", e.target.value)}
-        fullWidth
         slotProps={{ inputLabel: { shrink: true } }}
       />
 
       <Stack direction="row" spacing={1.25} sx={{ mt: 0.5 }}>
-        {gEdit && (
+        {isEdit && (
           <Button
             variant="outlined"
             color="error"
@@ -101,7 +99,7 @@ export function GastoSheet() {
           </Button>
         )}
         <Button variant="outlined" onClick={closeSheet} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={saveGasto} sx={{ flex: 2 }}>Salvar gasto</Button>
+        <Button variant="contained" onClick={handleSubmit(saveGasto)} sx={{ flex: 2 }}>Salvar gasto</Button>
       </Stack>
     </SheetFrame>
   );

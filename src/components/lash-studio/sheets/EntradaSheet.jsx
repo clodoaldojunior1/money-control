@@ -1,74 +1,67 @@
 "use client";
 
-import Box from "@mui/material/Box";
+import { useForm } from "react-hook-form";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme } from "@mui/material/styles";
 import { useAppData } from "../../../context/AppDataProvider";
+import { SERVICES, METHODS, HOJE_ISO } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
-import { MoneyField } from "../ui/MoneyField";
-import { SegmentedControl } from "../ui/SegmentedControl";
-import { SERVICES, METHODS } from "../../../data/seed";
+import { FormTextField } from "../ui/form/FormTextField";
+import { FormSelectField } from "../ui/form/FormSelectField";
+import { FormMoneyField } from "../ui/form/FormMoneyField";
+import { FormSegmented } from "../ui/form/FormSegmented";
 
 const METHOD_OPTIONS = METHODS.map((m) => ({ value: m, label: m }));
 
+const toDefaults = (entrada) => (entrada
+  ? { client: entrada.client, service: entrada.service, value: String(entrada.value), method: entrada.method, date: HOJE_ISO }
+  : { client: "", service: "Volume russo", value: "", method: "Pix", date: HOJE_ISO });
+
 export function EntradaSheet() {
-  const { eform, setEFormField, eTouched, eEdit, saveEntrada, removeEntrada, closeSheet } = useAppData();
   const { custom } = useTheme();
   const t = custom.tokens;
+  const { editing, isEdit, saveEntrada, removeEntrada, closeSheet } = useAppData();
 
-  const eError =
-    eTouched && (!eform.client.trim() || !(parseFloat(eform.value) > 0))
-      ? "Informe a cliente e um valor maior que zero."
-      : "";
+  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing) });
 
   return (
-    <SheetFrame title={eEdit ? "Editar entrada" : "Nova entrada"} onClose={closeSheet}>
-      <Box>
-        <MoneyField size="lg" value={eform.value} onChange={(v) => setEFormField("value", v)} autoFocus />
-        <Typography sx={{ fontSize: 11.5, color: "error.main", minHeight: 16, mt: 0.5 }}>{eError}</Typography>
-      </Box>
-
-      <TextField
-        label="Cliente"
-        placeholder="Nome da cliente"
-        value={eform.client}
-        onChange={(e) => setEFormField("client", e.target.value)}
-        fullWidth
+    <SheetFrame title={isEdit ? "Editar entrada" : "Nova entrada"} onClose={closeSheet}>
+      <FormMoneyField
+        control={control}
+        name="value"
+        size="lg"
+        autoFocus
+        rules={{
+          required: "Informe um valor maior que zero.",
+          validate: (v) => parseFloat(v) > 0 || "Informe um valor maior que zero.",
+        }}
       />
 
-      <TextField
-        select
-        label="Serviço realizado"
-        value={eform.service}
-        onChange={(e) => setEFormField("service", e.target.value)}
-        fullWidth
-      >
-        {SERVICES.map((s) => (
-          <MenuItem key={s} value={s}>{s}</MenuItem>
-        ))}
-      </TextField>
+      <FormTextField
+        control={control}
+        name="client"
+        label="Cliente"
+        placeholder="Nome da cliente"
+        reserveHelperText
+        rules={{ validate: (v) => v.trim().length > 0 || "Informe a cliente." }}
+      />
 
-      <Box>
-        <Typography sx={{ fontSize: 12, mb: 0.75, color: "text.secondary" }}>Forma de pagamento</Typography>
-        <SegmentedControl value={eform.method} onChange={(v) => setEFormField("method", v)} options={METHOD_OPTIONS} fullWidth />
-      </Box>
+      <FormSelectField control={control} name="service" label="Serviço realizado" options={SERVICES} />
 
-      <TextField
+      <FormSegmented control={control} name="method" label="Forma de pagamento" options={METHOD_OPTIONS} />
+
+      <FormTextField
+        control={control}
+        name="date"
         label="Data do recebimento"
         type="date"
-        value={eform.date}
-        onChange={(e) => setEFormField("date", e.target.value)}
-        fullWidth
         slotProps={{ inputLabel: { shrink: true } }}
       />
 
       <Stack direction="row" spacing={1.25} sx={{ mt: 0.5 }}>
-        {eEdit && (
+        {isEdit && (
           <Button
             variant="outlined"
             color="error"
@@ -80,7 +73,7 @@ export function EntradaSheet() {
           </Button>
         )}
         <Button variant="outlined" onClick={closeSheet} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={saveEntrada} sx={{ flex: 2 }}>Salvar entrada</Button>
+        <Button variant="contained" onClick={handleSubmit(saveEntrada)} sx={{ flex: 2 }}>Salvar entrada</Button>
       </Stack>
     </SheetFrame>
   );
