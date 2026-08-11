@@ -10,9 +10,34 @@ export const radius = {
   lg: 16,
 };
 
+/**
+ * Opacidades nomeadas para compor sobre um token de cor, sempre via `alpha()`
+ * do MUI — nunca concatenando sufixo hex na string da cor.
+ *
+ *   backgroundColor: alpha(t.accent, alphas.tint)
+ */
+export const alphas = {
+  /** Fundo de item selecionado, CTA suave. */
+  wash: 0.1,
+  /** Círculo/quadrado de ícone sobre superfície. */
+  tint: 0.15,
+  /** Mesma ideia, com mais presença (avatares de lista). */
+  tintStrong: 0.22,
+  /** Borda de ação destrutiva. */
+  border: 0.4,
+  /** Barra translúcida sobre conteúdo (bottom nav). */
+  veil: 0.88,
+};
+
 const shared = {
   onAccent: "#ffffff",
 };
+
+/**
+ * Cor do endereço do app (barra do navegador / splash do PWA). Fixa: é lida
+ * pelo sistema operacional antes de qualquer tema ser resolvido.
+ */
+export const THEME_COLOR = "#1f5f5b";
 
 export const tokens = {
   light: {
@@ -24,6 +49,16 @@ export const tokens = {
     accent2: "#3c6e8f",
     divider: "rgba(21,27,33,0.12)",
     danger: "#b3261e",
+    warning: "#c98a2e",
+    // Superfície invertida em relação à página (snackbar). Escura no tema
+    // claro, clara no escuro — as rampas viram junto, então os dois passos
+    // continuam contrastando entre si.
+    inverseSurface: "#333b43",
+    onInverseSurface: "#f5f7f8",
+    // Cartão azul-profundo (depoimento da landing). Escuro nos dois temas —
+    // por isso não sai da rampa, que inverte.
+    deepSurface: "#1d3b51",
+    onDeepSurface: "#eef4f9",
     neutral: {
       100: "#f5f7f8",
       200: "#e9edef",
@@ -74,6 +109,11 @@ export const tokens = {
     accent2: "#7ea5c4",
     divider: "rgba(233,238,242,0.14)",
     danger: "#f2b8b5",
+    warning: "#e0a94e",
+    inverseSurface: "#c3c9ce",
+    onInverseSurface: "#181e24",
+    deepSurface: "#2b5471",
+    onDeepSurface: "#eef4f9",
     neutral: {
       100: "#181e24",
       200: "#20272e",

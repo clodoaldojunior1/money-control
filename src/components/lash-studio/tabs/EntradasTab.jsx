@@ -7,7 +7,8 @@ import Card from "@mui/material/Card";
 import Avatar from "@mui/material/Avatar";
 import Button from "@mui/material/Button";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
+import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
 
 export function EntradasTab() {
@@ -44,7 +45,7 @@ export function EntradasTab() {
             onClick={() => openEntrada(e)}
             sx={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 1.5, p: "13px 15px", cursor: "pointer", border: "none" }}
           >
-            <Avatar sx={{ width: 38, height: 38, fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 15, bgcolor: `${t.accent2}2e`, color: t.accent2Ramp[700] }}>
+            <Avatar sx={{ width: 38, height: 38, fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 15, bgcolor: alpha(t.accent2, alphas.tintStrong), color: t.accent2Ramp[700] }}>
               {e.client.trim()[0].toUpperCase()}
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>

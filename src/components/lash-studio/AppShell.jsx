@@ -11,7 +11,8 @@ import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
+import { alphas } from "../../theme/tokens";
 
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
@@ -108,7 +109,7 @@ export function AppShell() {
         sx={{
           position: "relative",
           width: "100%",
-          maxWidth: 480,
+          maxWidth: LARGURA_APP,
           minHeight: "100dvh",
           display: "flex",
           flexDirection: "column",
@@ -184,7 +185,7 @@ export function AppShell() {
             maxWidth: LARGURA_APP,
             zIndex: (theme) => theme.zIndex.appBar,
             borderTop: `1px solid ${t.divider}`,
-            backgroundColor: `${t.bg}e0`,
+            backgroundColor: alpha(t.bg, alphas.veil),
             backdropFilter: "blur(14px)",
           }}
         >
@@ -226,7 +227,7 @@ export function AppShell() {
                     sx={{
                       justifyContent: "flex-start", gap: 0.5, px: 1.75, py: 1.25,
                       color: active ? t.accent : t.text,
-                      backgroundColor: active ? `${t.accent}1a` : "transparent",
+                      backgroundColor: active ? alpha(t.accent, alphas.wash) : "transparent",
                       "&.Mui-disabled": { color: t.neutral[500] },
                     }}
                   >
@@ -262,7 +263,7 @@ export function AppShell() {
           anchor="bottom"
           open={!!sheet}
           onClose={closeSheet}
-          slotProps={{ paper: { sx: { borderRadius: "28px 28px 0 0", maxHeight: "88%", maxWidth: 480, mx: "auto" } } }}
+          slotProps={{ paper: { sx: { borderRadius: "28px 28px 0 0", maxHeight: "88%", maxWidth: LARGURA_APP, mx: "auto" } } }}
         >
           {SheetComponent && <SheetComponent />}
         </Drawer>
@@ -291,7 +292,7 @@ export function AppShell() {
             width: "100%", maxWidth: LARGURA_APP - 36,
             "& .MuiSnackbarContent-root": {
               width: "100%", borderRadius: 22,
-              backgroundColor: t.neutral[800], color: "#f5f8fa",
+              backgroundColor: t.inverseSurface, color: t.onInverseSurface,
             },
           }}
         />

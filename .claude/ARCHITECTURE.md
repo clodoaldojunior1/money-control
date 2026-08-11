@@ -97,6 +97,41 @@ const t = custom.tokens;   // t.accent, t.accent2Ramp[700], t.shadow.md…
 ```
 
 **Regra:** cor nova → adicionar em `tokens.js`. Nunca hex solto no componente.
+Não há **nenhum** literal de cor fora de `tokens.js` — vale manter assim:
+
+```bash
+grep -rE '#[0-9a-fA-F]{3,8}\b|rgba?\([0-9]' src --include=*.jsx --include=*.js \
+  | grep -v 'src/theme/tokens.js'   # deve sair vazio
+```
+
+Além das rampas, existem tokens **semânticos** para casos em que o par
+fundo/texto precisa virar junto entre os temas:
+
+| Token | Para quê |
+|---|---|
+| `warning` | Âmbar do medidor de força de senha |
+| `inverseSurface` / `onInverseSurface` | Snackbar: superfície oposta à da página |
+| `deepSurface` / `onDeepSurface` | Cartão azul-profundo (depoimento da landing) |
+
+Os dois últimos existem justamente porque as rampas invertem (4.5): usar
+`neutral[800]` como fundo do snackbar funciona, mas o texto precisava virar
+junto — antes era `#f5f8fa` fixo e ficava branco sobre cinza claro no dark.
+
+### Transparências: `alpha()`, nunca sufixo hex
+
+Compor opacidade concatenando na string (`` `${t.accent}1f` ``) é opaco e
+espalhou nove alfas diferentes pelo código para três intenções. Use o
+`alpha()` do MUI com a escala nomeada `alphas` de `tokens.js`:
+
+```jsx
+import { alpha } from "@mui/material/styles";
+import { alphas } from "../../theme/tokens";
+
+backgroundColor: alpha(t.accent, alphas.tint)
+```
+
+`wash` (0.10) seleção · `tint` (0.15) ícone · `tintStrong` (0.22) avatar ·
+`border` (0.40) ação destrutiva · `veil` (0.88) barra translúcida.
 
 ### 3.2 Rotas públicas reais; abas do app por estado
 

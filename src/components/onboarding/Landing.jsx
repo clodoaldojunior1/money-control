@@ -14,7 +14,8 @@ import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
+import { alphas } from "../../theme/tokens";
 import { PublicShell } from "./PublicShell";
 import { BrandMark } from "./BrandMark";
 
@@ -37,23 +38,18 @@ const PLANS = [
 ];
 
 export function Landing() {
-  const { custom, palette } = useTheme();
+  const { custom } = useTheme();
   const t = custom.tokens;
 
-  // As rampas são invertidas no tema escuro, então o passo que dá "azul
-  // profundo" muda de lado. Sem isso o card de depoimento fica quase branco
-  // no dark, com o texto claro em cima.
-  const azulProfundo = palette.mode === "dark" ? t.accent2Ramp[200] : t.accent2Ramp[800];
-
   const tomDoIcone = (tom) => (tom === "accent"
-    ? { bg: `${t.accent}1f`, fg: t.accent }
-    : { bg: `${t.accent2}24`, fg: t.accent2Ramp[700] });
+    ? { bg: alpha(t.accent, alphas.tint), fg: t.accent }
+    : { bg: alpha(t.accent2, alphas.tint), fg: t.accent2Ramp[700] });
 
   return (
     <PublicShell>
       {/* Hero */}
       <Box sx={{ position: "relative", px: 3, pt: 5.5, pb: 4.25, backgroundColor: t.accent, color: t.onAccent, overflow: "hidden" }}>
-        <Box sx={{ position: "absolute", right: -70, top: -60, width: 220, height: 220, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.10)" }} />
+        <Box sx={{ position: "absolute", right: -70, top: -60, width: 220, height: 220, borderRadius: "50%", backgroundColor: alpha(t.onAccent, 0.1) }} />
 
         <Stack direction="row" sx={{ position: "relative", alignItems: "center", justifyContent: "space-between" }}>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
@@ -67,7 +63,7 @@ export function Landing() {
           <Chip
             label="Para lash designers autônomas"
             size="small"
-            sx={{ backgroundColor: "rgba(255,255,255,0.18)", color: "inherit", fontSize: 11 }}
+            sx={{ backgroundColor: alpha(t.onAccent, 0.18), color: "inherit", fontSize: 11 }}
           />
           <Typography component="h1" sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 36, lineHeight: 1.12, mt: 2, textWrap: "pretty" }}>
             Seu studio inteiro em um só lugar
@@ -88,7 +84,7 @@ export function Landing() {
             <Button
               component={Link}
               href="/login"
-              sx={{ py: 1.6, color: "inherit", border: "1px solid rgba(255,255,255,0.34)", fontSize: 14 }}
+              sx={{ py: 1.6, color: "inherit", border: `1px solid ${alpha(t.onAccent, 0.34)}`, fontSize: 14 }}
             >
               Já tenho conta
             </Button>
@@ -133,14 +129,14 @@ export function Landing() {
         </Stack>
 
         {/* Depoimento */}
-        <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", gap: 1.5, p: 2.75, border: "none", backgroundColor: azulProfundo, color: "#eef4f9", boxShadow: t.shadow.md }}>
+        <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", gap: 1.5, p: 2.75, border: "none", backgroundColor: t.deepSurface, color: t.onDeepSurface, boxShadow: t.shadow.md }}>
           <FormatQuoteRoundedIcon sx={{ fontSize: 26, opacity: 0.6 }} />
           <Typography sx={{ fontSize: 15, lineHeight: 1.55, textWrap: "pretty" }}>
             Eu fechava o mês no caderno e sempre esquecia o que gastei com material.
             Agora abro o app e o número já está lá.
           </Typography>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 0.5 }}>
-            <Box sx={{ width: 34, height: 34, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.18)", display: "grid", placeItems: "center", fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 14 }}>M</Box>
+            <Box sx={{ width: 34, height: 34, borderRadius: "50%", backgroundColor: alpha(t.onDeepSurface, alphas.tintStrong), display: "grid", placeItems: "center", fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 14 }}>M</Box>
             <Box>
               <Typography sx={{ fontSize: 13, fontWeight: 600 }}>Manuela Reis</Typography>
               <Typography sx={{ fontSize: 11.5, opacity: 0.72 }}>Studio Manu Lashes · Curitiba</Typography>
@@ -175,7 +171,7 @@ export function Landing() {
         </Stack>
 
         {/* CTA final */}
-        <Stack spacing={1.25} sx={{ p: 2.75, borderRadius: `${custom.radius.lg}px`, backgroundColor: `${t.accent}1a` }}>
+        <Stack spacing={1.25} sx={{ p: 2.75, borderRadius: `${custom.radius.lg}px`, backgroundColor: alpha(t.accent, alphas.wash) }}>
           <Typography sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 20, lineHeight: 1.25 }}>
             Comece hoje o controle do seu studio
           </Typography>

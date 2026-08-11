@@ -27,7 +27,7 @@ export function PasswordStrength({ senha }) {
   const t = custom.tokens;
 
   const forca = forcaDaSenha(senha);
-  const cores = [t.danger, "#c98a2e", t.accent];
+  const escala = [t.danger, t.warning, t.accent];
 
   return (
     <Box>
@@ -39,7 +39,7 @@ export function PasswordStrength({ senha }) {
               flex: 1,
               height: 4,
               borderRadius: 999,
-              backgroundColor: i < forca ? cores[forca - 1] : t.divider,
+              backgroundColor: i < forca ? escala[forca - 1] : t.divider,
               transition: "background-color .2s ease",
             }}
           />

@@ -3,7 +3,8 @@
 import Box from "@mui/material/Box";
 import InputBase from "@mui/material/InputBase";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
+import { alphas } from "../../../theme/tokens";
 
 const SIZES = {
   lg: { padding: "16px 20px", radius: 26, prefixFont: 22, valueFont: 34 },
@@ -20,7 +21,7 @@ export function MoneyField({ value, onChange, size = "md", autoFocus }) {
       sx={{
         display: "flex", alignItems: "baseline", gap: 1,
         padding: s.padding, borderRadius: `${s.radius}px`,
-        backgroundColor: `${t.accent}1f`,
+        backgroundColor: alpha(t.accent, alphas.tint),
       }}
     >
       <Typography sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: s.prefixFont, color: t.accent }}>

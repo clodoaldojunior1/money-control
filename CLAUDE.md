@@ -11,7 +11,9 @@ estrutura.**
 - **Yarn**, não npm: `yarn dev`, `yarn lint`, `yarn build`
 - **JavaScript**, não TypeScript (decisão explícita do projeto)
 - **MUI v9** para tudo. O design system vive em `src/theme/` — cor nova entra em
-  `tokens.js`, nunca hex solto no componente
+  `tokens.js`, nunca hex solto no componente. Hoje não há **nenhum** literal de
+  cor fora de `tokens.js`; transparência se faz com `alpha(token, alphas.x)`,
+  nunca concatenando sufixo hex
 - Estado global em `src/context/AppDataProvider.jsx`, consumido via `useAppData()`
 - **Formulários com React Hook Form**, dentro de cada sheet (o provider não
   guarda estado de formulário). Componentes MUI se ligam via os wrappers em

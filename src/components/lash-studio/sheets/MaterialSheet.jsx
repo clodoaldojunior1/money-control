@@ -6,7 +6,8 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
+import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
 import { BRL, UNITS, HOJE_ISO } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
@@ -91,7 +92,7 @@ export function MaterialSheet() {
             color="error"
             onClick={removeMaterial}
             aria-label="Excluir material"
-            sx={{ px: 1.75, borderColor: `${t.danger}66` }}
+            sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
           >
             <DeleteOutlineRoundedIcon />
           </Button>

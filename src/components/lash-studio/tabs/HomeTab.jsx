@@ -10,8 +10,9 @@ import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
 import { useAppData } from "../../../context/AppDataProvider";
+import { alphas } from "../../../theme/tokens";
 
 export function HomeTab() {
   const { custom } = useTheme();
@@ -41,7 +42,7 @@ export function HomeTab() {
       amount: `${i.kind === "in" ? "+ " : "− "}${money(i.value)}`,
       amountColor: i.kind === "in" ? t.accent2Ramp[700] : t.text,
       date: i.date,
-      dotBg: i.kind === "in" ? `${t.accent2}3d` : `${t.accent}29`,
+      dotBg: i.kind === "in" ? alpha(t.accent2, alphas.tintStrong) : alpha(t.accent, alphas.tint),
       dotFg: i.kind === "in" ? t.accent2Ramp[700] : t.accent,
     }));
 
@@ -72,14 +73,14 @@ export function HomeTab() {
 
       <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
         <Card variant="outlined" sx={{ p: 2, gap: 0.5, display: "flex", flexDirection: "column", border: "none" }}>
-          <Avatar sx={{ width: 32, height: 32, bgcolor: `${t.accent}29`, color: t.accent }}>
+          <Avatar sx={{ width: 32, height: 32, bgcolor: alpha(t.accent, alphas.tint), color: t.accent }}>
             <PaymentsOutlinedIcon sx={{ fontSize: 17 }} />
           </Avatar>
           <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.5 }}>Gasto com materiais</Typography>
           <Typography sx={{ fontFamily: "var(--font-heading)", fontSize: 22 }}>{money(materiaisTotal)}</Typography>
         </Card>
         <Card variant="outlined" sx={{ p: 2, gap: 0.5, display: "flex", flexDirection: "column", border: "none" }}>
-          <Avatar sx={{ width: 32, height: 32, bgcolor: `${t.accent2}38`, color: t.accent2Ramp[700] }}>
+          <Avatar sx={{ width: 32, height: 32, bgcolor: alpha(t.accent2, alphas.tintStrong), color: t.accent2Ramp[700] }}>
             <EventAvailableOutlinedIcon sx={{ fontSize: 17 }} />
           </Avatar>
           <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.5 }}>Agendadas hoje</Typography>

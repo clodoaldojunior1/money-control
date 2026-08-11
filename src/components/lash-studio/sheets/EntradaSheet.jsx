@@ -4,7 +4,8 @@ import { useForm } from "react-hook-form";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
+import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
 import { SERVICES, METHODS, HOJE_ISO } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
@@ -67,7 +68,7 @@ export function EntradaSheet() {
             color="error"
             onClick={removeEntrada}
             aria-label="Excluir entrada"
-            sx={{ px: 1.75, borderColor: `${t.danger}66` }}
+            sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
           >
             <DeleteOutlineRoundedIcon />
           </Button>

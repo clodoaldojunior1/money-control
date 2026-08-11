@@ -1,5 +1,6 @@
 import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "./providers";
+import { THEME_COLOR } from "../theme/tokens";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -23,7 +24,7 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1f5f5b",
+  themeColor: THEME_COLOR,
 };
 
 export default function RootLayout({ children }) {

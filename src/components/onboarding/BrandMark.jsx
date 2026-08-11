@@ -1,7 +1,7 @@
 "use client";
 
 import Box from "@mui/material/Box";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
 
 /** Quadrado com a inicial da marca. `onAccent` para uso sobre fundo accent. */
 export function BrandMark({ size = 30, radius = 9, fontSize = 14, onAccent = false }) {
@@ -19,7 +19,7 @@ export function BrandMark({ size = 30, radius = 9, fontSize = 14, onAccent = fal
         fontFamily: "var(--font-heading)",
         fontWeight: 700,
         fontSize,
-        backgroundColor: onAccent ? "rgba(255,255,255,0.18)" : t.accent,
+        backgroundColor: onAccent ? alpha(t.onAccent, 0.18) : t.accent,
         color: onAccent ? "inherit" : t.onAccent,
       }}
     >

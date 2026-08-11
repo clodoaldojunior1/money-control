@@ -8,7 +8,8 @@ import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
+import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
 import { tagSx } from "../../../theme/tagStyles";
 
@@ -40,7 +41,7 @@ export function MateriaisTab() {
           <Stack
             direction="row"
             spacing={1}
-            sx={{ alignItems: "center", mt: 0.75, p: "9px 12px", borderRadius: custom.radius.md, backgroundColor: `${t.danger}1f`, color: t.danger, fontSize: 12, fontWeight: 600 }}
+            sx={{ alignItems: "center", mt: 0.75, p: "9px 12px", borderRadius: custom.radius.md, backgroundColor: alpha(t.danger, alphas.tint), color: t.danger, fontSize: 12, fontWeight: 600 }}
           >
             <WarningAmberRoundedIcon sx={{ fontSize: 17 }} />
             <span>{lowCount === 1 ? "1 material no estoque mínimo" : `${lowCount} materiais no estoque mínimo`}</span>
