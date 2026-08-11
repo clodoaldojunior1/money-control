@@ -475,3 +475,36 @@ yarn lint
 E validar no navegador em viewport mobile: trocar as 5 abas, alternar tema
 (topbar e drawer), abrir o FAB em cada aba, salvar/editar/excluir com desfazer,
 e conferir o console sem erros de hidratação.
+
+### 7.1 Medindo a UI pelo DOM — armadilha de instrumento
+
+Quando não há screenshot disponível e a verificação é feita por script no
+navegador, o risco deixa de ser o código e passa a ser **a medição**.
+
+**Regras:**
+
+1. **`outerHTML`, `className` ou screenshot antes de `getComputedStyle`.** O
+   estilo computado devolve valor defasado quando lido logo após um
+   re-render — reflete o estado anterior. Ler o atributo `style` cru ou a
+   classe gerada pelo emotion é confiável; o computado, não.
+2. **Duas medições que se contradizem significam sonda quebrada, não código
+   quebrado.** Se o resultado é logicamente impossível, a premissa (o
+   instrumento) é que está errada.
+3. **Valide a sonda contra um caso de resultado conhecido** antes de confiar
+   nela. Um controle barato evita horas.
+4. **Reescreveu o mesmo arquivo duas vezes pelo mesmo sintoma sem resolver?**
+   A hipótese está errada. Pare — não tente a terceira variação.
+
+**O caso que gerou estas regras.** O medidor de força de senha
+(`PasswordStrength`) parecia não atualizar as barras: o rótulo dizia
+"Senha forte." enquanto as três barras liam `divider` via `getComputedStyle`.
+
+Isso é impossível — rótulo e barras derivam da **mesma variável, no mesmo
+render**. A leitura correta dessa contradição seria "meu instrumento mente".
+Em vez disso o componente foi reescrito três vezes, com teorias sucessivas
+sobre o React Compiler memoizar array, closure e objeto `sx` — todas falsas.
+
+Ao ler `outerHTML`, as barras estavam corretas desde o início. O componente
+nunca teve bug; o `getComputedStyle` é que devolvia estado velho. Nada disso
+sobreviveu no código — a versão final é a idiomática com `sx` —, mas o custo
+foi real.

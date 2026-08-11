@@ -50,3 +50,19 @@ estrutura.**
 
 `yarn lint` + validar no navegador em viewport mobile (5 abas, tema claro/escuro,
 FAB → sheet → salvar/editar/excluir com desfazer) e conferir o console limpo.
+
+### Ao medir a UI pelo DOM
+
+1. **`outerHTML`, `className` ou screenshot antes de `getComputedStyle`.** Esse
+   último devolve valor defasado quando lido logo após um re-render — mostra o
+   estado anterior. Já custou horas nesta sessão.
+2. **Duas medições que se contradizem = sonda quebrada, não código quebrado.**
+   Se o resultado é logicamente impossível (mesma variável, mesmo render,
+   valores diferentes), o instrumento está errado. Desconfie dele primeiro.
+3. **Valide a sonda num caso de resultado conhecido** antes de confiar nela.
+4. **Reescreveu o mesmo arquivo duas vezes pelo mesmo sintoma sem resolver?**
+   A hipótese está errada, não a implementação. Pare e reavalie — não tente a
+   terceira variação.
+5. Para pergunta visual ("de que cor está?", "está centralizado?"), o
+   instrumento certo é o olho. Sem screenshot disponível, prefira ler o
+   atributo `style`/`class` a inferir por estilo computado.
