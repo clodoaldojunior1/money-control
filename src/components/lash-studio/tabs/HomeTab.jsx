@@ -49,8 +49,9 @@ export function HomeTab() {
     <Stack spacing={1.75}>
       <Box
         sx={{
-          px: 2.75, py: 2.5, borderRadius: custom.radius.lg * 2,
+          px: 2.75, py: 3, borderRadius: custom.radius.lg * 2,
           background: t.accent, color: t.onAccent, boxShadow: t.shadow.md,
+          textAlign: "center",
         }}
       >
         <Typography sx={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.85 }}>
@@ -59,7 +60,11 @@ export function HomeTab() {
         <Typography sx={{ fontFamily: "var(--font-heading)", fontSize: 38, lineHeight: 1.1, mt: 0.75 }}>
           {money(faturamento)}
         </Typography>
-        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mt: 1.25, fontSize: 12.5, opacity: 0.92 }}>
+        <Stack
+          direction="row"
+          spacing={0.75}
+          sx={{ alignItems: "center", justifyContent: "center", mt: 1.25, fontSize: 12.5, opacity: 0.92 }}
+        >
           {heroUp ? <ArrowUpwardRoundedIcon sx={{ fontSize: 16 }} /> : <ArrowDownwardRoundedIcon sx={{ fontSize: 16 }} />}
           <span>{heroMeta}</span>
         </Stack>
