@@ -1,15 +1,7 @@
+import { diaCurto, periodoDe, periodoAnterior, dataDeISO } from "../lib/periodo";
+
 export const BRL = (n) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
-
-export const MES_ANTERIOR = 7420;
-export const HOJE_ISO = "2026-08-01";
-
-const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-
-export const fmtDia = (iso) => {
-  const [, m, d] = iso.split("-");
-  return `${d} ${MESES[+m - 1]}`;
-};
 
 export const SERVICES = [
   "Volume russo",
@@ -25,54 +17,100 @@ export const STATUSES = ["Confirmado", "Aguardando sinal", "Concluído"];
 export const METHODS = ["Pix", "Cartão", "Dinheiro"];
 export const UNITS = ["un", "par", "bandeja", "ml"];
 
-function buildEntradasSeed() {
-  const nomes = [
-    "Bruna Salles", "Carol Miranda", "Júlia Prado", "Larissa Reis", "Aline Duarte",
-    "Marina Costa", "Paula Nogueira", "Rafaela Lima", "Sofia Bertoldi", "Tainá Moraes",
-    "Vitória Campos", "Helena Braga", "Isadora Pires", "Nathália Rocha",
-  ];
-  const servicos = [
-    ["Volume russo", 260], ["Manutenção 21 dias", 140], ["Fox eyes", 280],
-    ["Volume brasileiro", 240], ["Remoção + design", 110], ["Efeito híbrido", 220],
-  ];
-  const metodos = ["Pix", "Cartão", "Pix", "Dinheiro"];
+const NOMES = [
+  "Bruna Salles", "Carol Miranda", "Júlia Prado", "Larissa Reis", "Aline Duarte",
+  "Marina Costa", "Paula Nogueira", "Rafaela Lima", "Sofia Bertoldi", "Tainá Moraes",
+  "Vitória Campos", "Helena Braga", "Isadora Pires", "Nathália Rocha",
+];
 
-  return Array.from({ length: 42 }, (_, i) => {
-    const sv = servicos[i % servicos.length];
-    const dia = Math.max(1, 31 - Math.floor((i - 3) * 0.72));
-    const iso = i < 3 ? HOJE_ISO : `2026-07-${String(dia).padStart(2, "0")}`;
+const SERVICOS_COM_PRECO = [
+  ["Volume russo", 260], ["Manutenção 21 dias", 140], ["Fox eyes", 280],
+  ["Volume brasileiro", 240], ["Remoção + design", 110], ["Efeito híbrido", 220],
+];
+
+const METODOS = ["Pix", "Cartão", "Pix", "Dinheiro"];
+
+const pad = (n) => String(n).padStart(2, "0");
+const diaDoPeriodo = (periodo, dia) => `${periodo}-${pad(dia)}`;
+const diasNoMes = (periodo) => {
+  const [ano, mes] = periodo.split("-").map(Number);
+  return new Date(ano, mes, 0).getDate();
+};
+
+/** Distribui `quantidade` dias entre 1 e `ultimoDia`, do mais recente ao mais antigo. */
+function diasEspalhados(quantidade, ultimoDia) {
+  if (ultimoDia < 1) return [];
+  const passo = ultimoDia / quantidade;
+  return Array.from({ length: quantidade }, (_, i) =>
+    Math.max(1, Math.round(ultimoDia - i * passo)));
+}
+
+function entradasDoPeriodo(periodo, quantidade, ultimoDia, prefixo) {
+  return diasEspalhados(quantidade, ultimoDia).map((dia, i) => {
+    const [servico, valor] = SERVICOS_COM_PRECO[i % SERVICOS_COM_PRECO.length];
+    const iso = diaDoPeriodo(periodo, dia);
     return {
-      id: `e${i + 1}`,
+      id: `${prefixo}${i + 1}`,
       kind: "in",
-      client: nomes[i % nomes.length],
-      service: sv[0],
-      method: metodos[i % metodos.length],
+      client: NOMES[(i * 3) % NOMES.length],
+      service: servico,
+      method: METODOS[i % METODOS.length],
       iso,
-      date: fmtDia(iso),
-      value: sv[1],
+      date: diaCurto(iso),
+      value: valor,
     };
   });
 }
 
-export const ENTRADAS_SEED = buildEntradasSeed();
+const gasto = (id, iso, tipo, sub, cat, title, value) => ({
+  id, kind: "out", tipo, sub, cat, title, iso, date: diaCurto(iso), value,
+});
 
-export const AGENDA_SEED = [
-  { id: "a1", hour: "09:00", dur: "2h30", name: "Bruna Salles", service: "Volume russo", status: "Concluído", value: 260, date: HOJE_ISO },
-  { id: "a2", hour: "11:45", dur: "1h30", name: "Carol Miranda", service: "Manutenção 21 dias", status: "Em atendimento", value: 140, date: HOJE_ISO },
-  { id: "a3", hour: "14:00", dur: "2h", name: "Júlia Prado", service: "Fox eyes", status: "Confirmado", value: 280, date: HOJE_ISO },
-  { id: "a4", hour: "16:30", dur: "1h", name: "Larissa Reis", service: "Remoção + design", status: "Confirmado", value: 110, date: HOJE_ISO },
-  { id: "a5", hour: "18:00", dur: "2h", name: "Aline Duarte", service: "Volume brasileiro", status: "Aguardando sinal", value: 240, date: HOJE_ISO },
-];
+const material = (id, iso, name, qty, unit, cost, min) => ({
+  id, name, qty, unit, cost, min, iso, date: diaCurto(iso),
+});
 
-export const MATERIAIS_SEED = [
-  { id: "m1", name: "Cílios 0.05 D mix", qty: 4, unit: "bandeja", cost: 189.9, min: 2, iso: "2026-07-31", date: "31 jul" },
-  { id: "m2", name: "Cola Glue Pro 5ml", qty: 2, unit: "un", cost: 238, min: 1, iso: "2026-07-28", date: "28 jul" },
-  { id: "m3", name: "Primer 15ml", qty: 1, unit: "un", cost: 46, min: 2, iso: "2026-07-28", date: "28 jul" },
-  { id: "m4", name: "Pinças curvas", qty: 3, unit: "un", cost: 200, min: 1, iso: "2026-07-26", date: "26 jul" },
-];
+/**
+ * Gera os dados mockados relativos a um dia. Determinístico: o mesmo `hoje`
+ * produz sempre o mesmo conjunto.
+ *
+ * Preenche o mês corrente **e** o anterior — sem isso a comparação entre meses
+ * e a navegação de período não teriam o que mostrar.
+ */
+export function gerarSeed(hoje) {
+  const atual = periodoDe(hoje);
+  const anterior = periodoAnterior(atual);
+  const diaDeHoje = dataDeISO(hoje).getDate();
 
-export const GASTOS_SEED = [
-  { id: "g1", kind: "out", tipo: "trabalho", sub: "fixo", title: "Aluguel do studio", cat: "Fixo", iso: HOJE_ISO, date: fmtDia(HOJE_ISO), value: 850 },
-  { id: "g2", kind: "out", tipo: "pessoal", sub: "superfluo", title: "Café da tarde", cat: "Supérfluo", iso: "2026-07-30", date: "30 jul", value: 32 },
-  { id: "g3", kind: "out", tipo: "pessoal", sub: "necessario", title: "Mercado", cat: "Necessário", iso: "2026-07-29", date: "29 jul", value: 410 },
-];
+  const entradas = [
+    ...entradasDoPeriodo(atual, Math.max(3, Math.min(14, diaDeHoje)), diaDeHoje, "e"),
+    ...entradasDoPeriodo(anterior, 28, diasNoMes(anterior), "ea"),
+  ];
+
+  const gastos = [
+    gasto("g1", diaDoPeriodo(atual, 1), "trabalho", "fixo", "Fixo", "Aluguel do studio", 850),
+    gasto("g2", diaDoPeriodo(atual, Math.max(1, diaDeHoje - 1)), "pessoal", "superfluo", "Supérfluo", "Café da tarde", 32),
+    gasto("g3", diaDoPeriodo(atual, Math.max(1, diaDeHoje - 2)), "pessoal", "necessario", "Necessário", "Mercado", 410),
+    gasto("g4", diaDoPeriodo(anterior, 1), "trabalho", "fixo", "Fixo", "Aluguel do studio", 850),
+    gasto("g5", diaDoPeriodo(anterior, 12), "trabalho", "fixo", "Fixo", "Internet do studio", 120),
+    gasto("g6", diaDoPeriodo(anterior, 20), "pessoal", "necessario", "Necessário", "Mercado", 380),
+  ];
+
+  const ultimoDiaAnterior = diasNoMes(anterior);
+  const materiais = [
+    material("m1", diaDoPeriodo(atual, Math.max(1, diaDeHoje - 3)), "Cílios 0.05 D mix", 4, "bandeja", 189.9, 2),
+    material("m2", diaDoPeriodo(anterior, ultimoDiaAnterior - 3), "Cola Glue Pro 5ml", 2, "un", 238, 1),
+    material("m3", diaDoPeriodo(anterior, ultimoDiaAnterior - 6), "Primer 15ml", 1, "un", 46, 2),
+    material("m4", diaDoPeriodo(anterior, ultimoDiaAnterior - 9), "Pinças curvas", 3, "un", 200, 1),
+  ];
+
+  const agenda = [
+    { id: "a1", hour: "09:00", dur: "2h30", name: "Bruna Salles", service: "Volume russo", status: "Concluído", value: 260, date: hoje },
+    { id: "a2", hour: "11:45", dur: "1h30", name: "Carol Miranda", service: "Manutenção 21 dias", status: "Em atendimento", value: 140, date: hoje },
+    { id: "a3", hour: "14:00", dur: "2h", name: "Júlia Prado", service: "Fox eyes", status: "Confirmado", value: 280, date: hoje },
+    { id: "a4", hour: "16:30", dur: "1h", name: "Larissa Reis", service: "Remoção + design", status: "Confirmado", value: 110, date: hoje },
+    { id: "a5", hour: "18:00", dur: "2h", name: "Aline Duarte", service: "Volume brasileiro", status: "Aguardando sinal", value: 240, date: hoje },
+  ];
+
+  return { items: [...entradas, ...gastos], materiais, agenda };
+}

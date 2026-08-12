@@ -10,20 +10,23 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
+import { rotuloDoPeriodo } from "../../../lib/periodo";
+import { PeriodNavigator } from "../ui/PeriodNavigator";
 
 export function EntradasTab() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { money, entradas, totals, openEntrada } = useAppData();
+  const { money, periodo, entradas, totals, openEntrada } = useAppData();
 
   const entradasList = [...entradas].sort((a, b) => (b.iso || "").localeCompare(a.iso || ""));
 
   return (
     <Stack spacing={1.75}>
+      <PeriodNavigator />
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-end", justifyContent: "space-between" }}>
         <Box>
           <Typography variant="h4" sx={{ fontSize: 22 }}>Entradas</Typography>
-          <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{entradas.length} recebimentos em agosto</Typography>
+          <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{entradas.length} recebimentos em {rotuloDoPeriodo(periodo)}</Typography>
         </Box>
         <Button variant="contained" size="small" startIcon={<AddRoundedIcon />} onClick={() => openEntrada(null)} sx={{ px: 1.75 }}>
           Receber

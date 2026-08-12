@@ -1,16 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import {
-  BRL,
-  ENTRADAS_SEED,
-  AGENDA_SEED,
-  MATERIAIS_SEED,
-  GASTOS_SEED,
-  MES_ANTERIOR,
-  HOJE_ISO,
-  fmtDia,
-} from "../data/seed";
+import { BRL, gerarSeed } from "../data/seed";
+import { diaCurto, noPeriodo, periodoAnterior, periodoDe, periodoSeguinte } from "../lib/periodo";
 
 const AppDataContext = createContext(null);
 
@@ -28,10 +20,18 @@ const SHEET_POR_ABA = {
   agenda: "agenda",
 };
 
-export function AppDataProvider({ children }) {
-  const [items, setItems] = useState(() => [...ENTRADAS_SEED, ...GASTOS_SEED]);
-  const [materiais, setMateriais] = useState(MATERIAIS_SEED);
-  const [agenda, setAgenda] = useState(AGENDA_SEED);
+/**
+ * `hoje` chega como prop já resolvida no cliente (ver `useHoje` e o layout de
+ * /app). O provider só é montado depois disso, então os inicializadores de
+ * estado abaixo podem semear os dados direto — sem efeito, sem estado nulo.
+ */
+export function AppDataProvider({ children, hoje }) {
+  const [seedInicial] = useState(() => gerarSeed(hoje));
+  const [items, setItems] = useState(seedInicial.items);
+  const [materiais, setMateriais] = useState(seedInicial.materiais);
+  const [agenda, setAgenda] = useState(seedInicial.agenda);
+
+  const [periodo, setPeriodo] = useState(() => periodoDe(hoje));
 
   const [tab, setTab] = useState("home");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -94,7 +94,7 @@ export function AppDataProvider({ children }) {
       toast("Gasto atualizado", () => setItems((cur) => cur.map((i) => (i.id === prev.id ? prev : i))));
       return;
     }
-    const item = { id: `g${Date.now()}`, kind: "out", iso: values.data, date: fmtDia(values.data), ...patch };
+    const item = { id: `g${Date.now()}`, kind: "out", iso: values.data, date: diaCurto(values.data), ...patch };
     setItems((cur) => [item, ...cur]);
     closeSheet();
     toast(`Gasto de ${BRL(value)} salvo`, () => setItems((cur) => cur.filter((i) => i.id !== item.id)));
@@ -158,7 +158,7 @@ export function AppDataProvider({ children }) {
       toast("Entrada atualizada", () => setItems((cur) => cur.map((i) => (i.id === prev.id ? prev : i))));
       return;
     }
-    const it = { id: `e${Date.now()}`, kind: "in", iso: values.date, date: fmtDia(values.date), ...patch };
+    const it = { id: `e${Date.now()}`, kind: "in", iso: values.date, date: diaCurto(values.date), ...patch };
     setItems((cur) => [it, ...cur]);
     closeSheet();
     toast(`Entrada de ${BRL(value)} registrada`, () => setItems((cur) => cur.filter((i) => i.id !== it.id)));
@@ -195,7 +195,7 @@ export function AppDataProvider({ children }) {
       toast("Material atualizado", () => setMateriais((cur) => cur.map((m) => (m.id === prev.id ? prev : m))));
       return;
     }
-    const mat = { id: `m${Date.now()}`, iso: values.date, date: fmtDia(values.date), ...patch };
+    const mat = { id: `m${Date.now()}`, iso: values.date, date: diaCurto(values.date), ...patch };
     setMateriais((cur) => [mat, ...cur]);
     closeSheet();
     toast(`Material lançado nos gastos: ${BRL(cost)}`, () => setMateriais((cur) => cur.filter((m) => m.id !== mat.id)));
@@ -220,32 +220,54 @@ export function AppDataProvider({ children }) {
     openSheet(SHEET_POR_ABA[tab] ?? "entrada", null);
   }, [tab, openSheet]);
 
-  // — cross-cutting derived aggregates —
+  // — navegação de período —
+  const irParaPeriodoAnterior = useCallback(() => setPeriodo((p) => periodoAnterior(p)), []);
+  const irParaPeriodoSeguinte = useCallback(() => setPeriodo((p) => periodoSeguinte(p)), []);
+  const voltarAoMesAtual = useCallback(() => setPeriodo(periodoDe(hoje)), [hoje]);
+  const ehMesAtual = !!hoje && periodo === periodoDe(hoje);
+
+  // — agregados, todos com escopo no período selecionado —
+  const soma = (lista) => lista.reduce((a, b) => a + b.value, 0);
+
+  /** Materiais projetados como gasto de trabalho/variável (ver 3.3). */
+  const materiaisComoGasto = useMemo(() => materiais.map((m) => ({
+    id: `mx${m.id}`, kind: "out", tipo: "trabalho", sub: "variavel", cat: "Material",
+    title: `${m.name} · ${m.qty} ${m.unit}`, value: m.cost, date: m.date, iso: m.iso, material: m,
+  })), [materiais]);
+
   const ledgerOut = useMemo(() => {
-    const mats = materiais.map((m) => ({
-      id: `mx${m.id}`, kind: "out", tipo: "trabalho", sub: "variavel", cat: "Material",
-      title: `${m.name} · ${m.qty} ${m.unit}`, value: m.cost, date: m.date, iso: m.iso, material: m,
-    }));
-    return [...items.filter((i) => i.kind === "out"), ...mats];
-  }, [items, materiais]);
+    if (!periodo) return [];
+    const doPeriodo = noPeriodo(periodo);
+    return [...items.filter((i) => i.kind === "out"), ...materiaisComoGasto].filter(doPeriodo);
+  }, [items, materiaisComoGasto, periodo]);
 
-  const entradas = useMemo(() => items.filter((i) => i.kind === "in"), [items]);
+  const entradas = useMemo(() => {
+    if (!periodo) return [];
+    return items.filter((i) => i.kind === "in").filter(noPeriodo(periodo));
+  }, [items, periodo]);
 
-  const totals = useMemo(() => {
-    const trabalho = ledgerOut.filter((i) => i.tipo === "trabalho").reduce((a, b) => a + b.value, 0);
-    const pessoal = ledgerOut.filter((i) => i.tipo === "pessoal").reduce((a, b) => a + b.value, 0);
-    const materiaisTotal = ledgerOut.filter((i) => i.cat === "Material").reduce((a, b) => a + b.value, 0);
-    const faturamento = entradas.reduce((a, b) => a + b.value, 0);
-    return { trabalho, pessoal, materiaisTotal, faturamento };
-  }, [ledgerOut, entradas]);
+  const totals = useMemo(() => ({
+    trabalho: soma(ledgerOut.filter((i) => i.tipo === "trabalho")),
+    pessoal: soma(ledgerOut.filter((i) => i.tipo === "pessoal")),
+    materiaisTotal: soma(ledgerOut.filter((i) => i.cat === "Material")),
+    faturamento: soma(entradas),
+  }), [ledgerOut, entradas]);
+
+  /** Faturamento do mês anterior ao selecionado — base da comparação da Home. */
+  const faturamentoAnterior = useMemo(() => {
+    if (!periodo) return 0;
+    const anterior = noPeriodo(periodoAnterior(periodo));
+    return soma(items.filter((i) => i.kind === "in").filter(anterior));
+  }, [items, periodo]);
 
   const value = useMemo(() => ({
     money,
-    mesAnterior: MES_ANTERIOR,
-    hoje: HOJE_ISO,
+    hoje,
+    periodo, ehMesAtual,
+    irParaPeriodoAnterior, irParaPeriodoSeguinte, voltarAoMesAtual,
 
     items, materiais, agenda,
-    ledgerOut, entradas, totals,
+    ledgerOut, entradas, totals, faturamentoAnterior,
 
     tab, setTab,
     sheet, editing, isEdit: !!editing,
@@ -259,7 +281,9 @@ export function AppDataProvider({ children }) {
     openEntrada, saveEntrada, removeEntrada,
     openMaterial, saveMaterial, removeMaterial,
   }), [
-    money, items, materiais, agenda, ledgerOut, entradas, totals,
+    money, hoje, periodo, ehMesAtual,
+    irParaPeriodoAnterior, irParaPeriodoSeguinte, voltarAoMesAtual,
+    items, materiais, agenda, ledgerOut, entradas, totals, faturamentoAnterior,
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
     filtro, snack, undo,

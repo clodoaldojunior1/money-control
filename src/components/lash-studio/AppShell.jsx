@@ -13,6 +13,7 @@ import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../theme/tokens";
+import { diaPorExtenso } from "../../lib/periodo";
 
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
@@ -96,7 +97,7 @@ export function AppShell() {
   const { isDark, toggleColorMode } = useColorMode();
   const {
     tab, setTab, sheet, closeSheet, drawerOpen, openDrawer, closeDrawer,
-    openContextualSheet, contextualSheet, snack, undo,
+    openContextualSheet, contextualSheet, snack, undo, hoje,
   } = useAppData();
 
   const TabComponent = TAB_COMPONENTS[tab] ?? HomeTab;
@@ -124,8 +125,8 @@ export function AppShell() {
             <MenuRoundedIcon sx={{ fontSize: 19 }} />
           </HeaderIconButton>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: 11, letterSpacing: "0.09em", textTransform: "uppercase", color: t.accent }}>
-              Sábado, 1 de agosto
+            <Typography sx={{ fontSize: 11, letterSpacing: "0.09em", textTransform: "uppercase", color: t.accent, minHeight: 17 }}>
+              {hoje ? diaPorExtenso(hoje) : ""}
             </Typography>
             <Typography sx={{ fontFamily: "var(--font-heading)", fontSize: 20, lineHeight: 1.15 }}>
               Olá, Manu

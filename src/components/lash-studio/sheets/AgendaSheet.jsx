@@ -7,7 +7,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
-import { SERVICES, DURATIONS, STATUSES, HOJE_ISO } from "../../../data/seed";
+import { SERVICES, DURATIONS, STATUSES } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
 import { FormTextField } from "../ui/form/FormTextField";
 import { FormSelectField } from "../ui/form/FormSelectField";
@@ -18,16 +18,16 @@ import { FormOptionGroup } from "../ui/form/FormOptionGroup";
 const DUR_OPTIONS = DURATIONS.map((d) => ({ value: d, label: d }));
 const STATUS_OPTIONS = STATUSES.map((s) => ({ value: s, label: s }));
 
-const toDefaults = (ag) => (ag
+const toDefaults = (ag, hoje) => (ag
   ? { name: ag.name, service: ag.service, date: ag.date, hour: ag.hour, dur: ag.dur, status: ag.status, value: String(ag.value) }
-  : { name: "", service: "Volume russo", date: HOJE_ISO, hour: "09:00", dur: "2h", status: "Confirmado", value: "" });
+  : { name: "", service: "Volume russo", date: hoje, hour: "09:00", dur: "2h", status: "Confirmado", value: "" });
 
 export function AgendaSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveAgenda, removeAgenda, closeSheet } = useAppData();
+  const { editing, isEdit, saveAgenda, removeAgenda, closeSheet, hoje } = useAppData();
 
-  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing) });
+  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
   return (
     <SheetFrame title={isEdit ? "Editar agendamento" : "Novo agendamento"} onClose={closeSheet}>

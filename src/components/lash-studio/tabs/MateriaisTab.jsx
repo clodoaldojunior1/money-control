@@ -11,17 +11,20 @@ import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
+import { rotuloDoPeriodo } from "../../../lib/periodo";
+import { PeriodNavigator } from "../ui/PeriodNavigator";
 import { tagSx } from "../../../theme/tagStyles";
 
 export function MateriaisTab() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { money, materiais, totals, openMaterial } = useAppData();
+  const { money, periodo, materiais, totals, openMaterial } = useAppData();
 
   const lowCount = materiais.filter((m) => m.qty <= m.min).length;
 
   return (
     <Stack spacing={1.75}>
+      <PeriodNavigator />
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-end", justifyContent: "space-between" }}>
         <Box>
           <Typography variant="h4" sx={{ fontSize: 22 }}>Materiais</Typography>
@@ -33,7 +36,7 @@ export function MateriaisTab() {
       </Stack>
 
       <Card variant="outlined" sx={{ p: 2.25, gap: 0.75, display: "flex", flexDirection: "column", border: "none" }}>
-        <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>Investido em estoque · entra em Gastos</Typography>
+        <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>Comprado em {rotuloDoPeriodo(periodo)} · entra em Gastos</Typography>
         <Typography sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 30, lineHeight: 1.1 }}>
           {money(totals.materiaisTotal)}
         </Typography>

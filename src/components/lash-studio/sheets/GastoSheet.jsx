@@ -7,7 +7,6 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
-import { HOJE_ISO } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
 import { FormTextField } from "../ui/form/FormTextField";
 import { FormMoneyField } from "../ui/form/FormMoneyField";
@@ -32,17 +31,17 @@ const SUB_OPTIONS = {
 
 const SUB_PADRAO = { trabalho: "variavel", pessoal: "necessario" };
 
-const toDefaults = (gasto) => (gasto
-  ? { valor: String(gasto.value), desc: gasto.title, tipo: gasto.tipo, sub: gasto.sub, data: HOJE_ISO }
-  : { valor: "", desc: "", tipo: "trabalho", sub: "variavel", data: HOJE_ISO });
+const toDefaults = (gasto, hoje) => (gasto
+  ? { valor: String(gasto.value), desc: gasto.title, tipo: gasto.tipo, sub: gasto.sub, data: hoje }
+  : { valor: "", desc: "", tipo: "trabalho", sub: "variavel", data: hoje });
 
 export function GastoSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveGasto, removeGasto, closeSheet } = useAppData();
+  const { editing, isEdit, saveGasto, removeGasto, closeSheet, hoje } = useAppData();
 
   const { control, handleSubmit, setValue } = useForm({
-    defaultValues: toDefaults(editing),
+    defaultValues: toDefaults(editing, hoje),
   });
 
   // useWatch (e não watch) para não desabilitar a memoização do React Compiler.

@@ -10,6 +10,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import { useTheme } from "@mui/material/styles";
 import { useAppData } from "../../../context/AppDataProvider";
+import { diaEMes } from "../../../lib/periodo";
 import { tagSx } from "../../../theme/tagStyles";
 
 const STATUS_TAG = {
@@ -22,14 +23,14 @@ const STATUS_TAG = {
 export function AgendaTab() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { money, agenda, openAgenda } = useAppData();
+  const { money, hoje, agenda, openAgenda } = useAppData();
   const agendaTotal = money(agenda.reduce((s, a) => s + a.value, 0));
 
   return (
     <Stack spacing={1.75}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-end", justifyContent: "space-between" }}>
         <Box>
-          <Typography variant="h4" sx={{ fontSize: 22 }}>Hoje, 1 de agosto</Typography>
+          <Typography variant="h4" sx={{ fontSize: 22 }}>Hoje, {diaEMes(hoje)}</Typography>
           <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
             {agenda.length} atendimentos · {agendaTotal} previstos
           </Typography>

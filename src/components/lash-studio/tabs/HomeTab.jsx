@@ -13,17 +13,23 @@ import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlin
 import { useTheme, alpha } from "@mui/material/styles";
 import { useAppData } from "../../../context/AppDataProvider";
 import { alphas } from "../../../theme/tokens";
+import { nomeDoMes, periodoAnterior, rotuloDoPeriodo } from "../../../lib/periodo";
+import { PeriodNavigator } from "../ui/PeriodNavigator";
 
 export function HomeTab() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { money, mesAnterior, entradas, ledgerOut, totals, agenda, setTab } = useAppData();
+  const { money, periodo, faturamentoAnterior, entradas, ledgerOut, totals, agenda, setTab } = useAppData();
 
   const { faturamento, trabalho, materiaisTotal } = totals;
-  const heroUp = faturamento >= mesAnterior;
-  const heroMeta =
-    `${faturamento >= mesAnterior ? "+" : ""}${Math.round(((faturamento - mesAnterior) / mesAnterior) * 100)}% vs. julho · ` +
-    `${faturamento - trabalho >= 0 ? "lucro " : "prejuízo "}${money(Math.abs(faturamento - trabalho))}`;
+  const heroUp = faturamento >= faturamentoAnterior;
+  // Sem mês anterior não há percentual a mostrar — evita dividir por zero e
+  // inventar "+Infinity%" no primeiro mês de uso.
+  const variacao = faturamentoAnterior > 0
+    ? `${heroUp ? "+" : ""}${Math.round(((faturamento - faturamentoAnterior) / faturamentoAnterior) * 100)}% vs. ${nomeDoMes(periodoAnterior(periodo))}`
+    : "primeiro mês com registros";
+  const resultado = `${faturamento - trabalho >= 0 ? "lucro " : "prejuízo "}${money(Math.abs(faturamento - trabalho))}`;
+  const heroMeta = `${variacao} · ${resultado}`;
 
   const label = (i) => (i.kind === "in" ? `${i.service} — ${i.client}` : i.title);
   const recentes = [...entradas, ...ledgerOut]
@@ -48,6 +54,8 @@ export function HomeTab() {
 
   return (
     <Stack spacing={1.75}>
+      <PeriodNavigator />
+
       <Box
         sx={{
           px: 2.75, py: 3, borderRadius: custom.radius.lg * 2,
@@ -56,7 +64,7 @@ export function HomeTab() {
         }}
       >
         <Typography sx={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.85 }}>
-          Faturamento de agosto
+          Faturamento de {rotuloDoPeriodo(periodo)}
         </Typography>
         <Typography sx={{ fontFamily: "var(--font-heading)", fontSize: 38, lineHeight: 1.1, mt: 0.75 }}>
           {money(faturamento)}

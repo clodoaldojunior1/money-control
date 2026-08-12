@@ -7,7 +7,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
-import { SERVICES, METHODS, HOJE_ISO } from "../../../data/seed";
+import { SERVICES, METHODS } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
 import { FormTextField } from "../ui/form/FormTextField";
 import { FormSelectField } from "../ui/form/FormSelectField";
@@ -16,16 +16,16 @@ import { FormSegmented } from "../ui/form/FormSegmented";
 
 const METHOD_OPTIONS = METHODS.map((m) => ({ value: m, label: m }));
 
-const toDefaults = (entrada) => (entrada
-  ? { client: entrada.client, service: entrada.service, value: String(entrada.value), method: entrada.method, date: HOJE_ISO }
-  : { client: "", service: "Volume russo", value: "", method: "Pix", date: HOJE_ISO });
+const toDefaults = (entrada, hoje) => (entrada
+  ? { client: entrada.client, service: entrada.service, value: String(entrada.value), method: entrada.method, date: hoje }
+  : { client: "", service: "Volume russo", value: "", method: "Pix", date: hoje });
 
 export function EntradaSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveEntrada, removeEntrada, closeSheet } = useAppData();
+  const { editing, isEdit, saveEntrada, removeEntrada, closeSheet, hoje } = useAppData();
 
-  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing) });
+  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
   return (
     <SheetFrame title={isEdit ? "Editar entrada" : "Nova entrada"} onClose={closeSheet}>

@@ -9,7 +9,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
-import { BRL, UNITS, HOJE_ISO } from "../../../data/seed";
+import { BRL, UNITS } from "../../../data/seed";
 import { SheetFrame } from "../ui/SheetFrame";
 import { FormTextField } from "../ui/form/FormTextField";
 import { FormMoneyField } from "../ui/form/FormMoneyField";
@@ -19,16 +19,16 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ value: u, label: u }));
 
 const positivo = (msg) => (v) => parseFloat(v) > 0 || msg;
 
-const toDefaults = (material) => (material
-  ? { name: material.name, qty: String(material.qty), unit: material.unit, cost: String(material.cost), min: String(material.min), date: HOJE_ISO }
-  : { name: "", qty: "1", unit: "un", cost: "", min: "1", date: HOJE_ISO });
+const toDefaults = (material, hoje) => (material
+  ? { name: material.name, qty: String(material.qty), unit: material.unit, cost: String(material.cost), min: String(material.min), date: hoje }
+  : { name: "", qty: "1", unit: "un", cost: "", min: "1", date: hoje });
 
 export function MaterialSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveMaterial, removeMaterial, closeSheet } = useAppData();
+  const { editing, isEdit, saveMaterial, removeMaterial, closeSheet, hoje } = useAppData();
 
-  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing) });
+  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
   // useWatch (e não watch) para não desabilitar a memoização do React Compiler.
   const [rawCost, rawQty] = useWatch({ control, name: ["cost", "qty"] });

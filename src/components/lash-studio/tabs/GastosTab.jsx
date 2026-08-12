@@ -12,7 +12,9 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import { useTheme } from "@mui/material/styles";
 import { useAppData } from "../../../context/AppDataProvider";
+import { rotuloDoPeriodo } from "../../../lib/periodo";
 import { SegmentedControl } from "../ui/SegmentedControl";
+import { PeriodNavigator } from "../ui/PeriodNavigator";
 import { tagSx } from "../../../theme/tagStyles";
 
 const FILTRO_OPTIONS = [
@@ -24,7 +26,7 @@ const FILTRO_OPTIONS = [
 export function GastosTab() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { money, ledgerOut, totals, filtro, setFiltro, openGasto, openMaterial } = useAppData();
+  const { money, periodo, ledgerOut, totals, filtro, setFiltro, openGasto, openMaterial } = useAppData();
   const { trabalho, pessoal } = totals;
 
   const gastosFiltrados = ledgerOut
@@ -38,7 +40,10 @@ export function GastosTab() {
 
   return (
     <Stack spacing={1.75}>
-      <Typography variant="h4" sx={{ fontSize: 22 }}>Gastos de agosto</Typography>
+      <PeriodNavigator />
+      <Typography variant="h4" sx={{ fontSize: 22 }}>
+        Gastos de {rotuloDoPeriodo(periodo)}
+      </Typography>
 
       <Card variant="outlined" sx={{ p: 2, gap: 1.5, display: "flex", flexDirection: "column", border: "none" }}>
         <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between" }}>
