@@ -50,8 +50,12 @@ src/
 │   ├── ColorModeProvider.jsx tema claro/escuro + ThemeProvider + CssBaseline
 │   └── AppDataProvider.jsx   TODO o estado de domínio e de UI do app
 │
+├── lib/
+│   ├── periodo.js            datas e períodos (Intl pt-BR, sem armadilha UTC)
+│   └── useHoje.js            data do cliente sem quebrar hidratação
+│
 ├── data/
-│   └── seed.js               dados mockados + helpers (BRL, fmtDia, listas)
+│   └── seed.js               gerarSeed(hoje) + BRL + listas de domínio
 │
 ├── components/onboarding/    telas públicas
 │   ├── PublicShell.jsx       moldura centralizada (mesma largura do app)
@@ -241,6 +245,38 @@ A ação muda conforme a aba, definida em `SHEET_POR_ABA` no `AppDataProvider`:
 O rótulo do FAB (`FAB_LABEL` no `AppShell`) é chaveado **pelo tipo de sheet**,
 não pela aba, justamente para não divergir desse mapa.
 
+### 3.7 Período: a unidade de escopo do app
+
+Quase tudo no app é **do mês**: faturamento, gastos, materiais comprados. O
+`periodo` (`"2026-08"`) vive no `AppDataProvider` e recorta `entradas`,
+`ledgerOut` e `totals`. A Agenda é a exceção — ela é do **dia**.
+
+O `PeriodNavigator` (‹ Agosto ›) aparece nas quatro abas de escopo mensal e
+some da Agenda.
+
+**A data do cliente não pode ser lida durante o render.** As rotas são
+pré-renderizadas no build; `new Date()` no render gravaria a data do *build* no
+HTML e divergiria do cliente. A solução é o hook `useHoje` em
+`src/lib/useHoje.js`, que usa `useSyncExternalStore` com um snapshot de
+servidor diferente do de cliente — a forma suportada pelo React de dizer "este
+valor só existe no cliente", sem erro de hidratação.
+
+Daí decorre a ordem de montagem:
+
+```
+app/app/layout.jsx     resolve `hoje` com useHoje()
+  └─ hoje === null  →  <AppBootSkeleton />   (é o que vai no HTML estático)
+  └─ hoje definido  →  <AppDataProvider hoje={hoje}>
+```
+
+O provider **só monta com a data já conhecida**, então ele semeia tudo nos
+inicializadores de `useState` — sem efeito, sem estado nulo, sem flag de
+"pronto" espalhada pelos componentes.
+
+> Tentar resolver a data num `useEffect` + `setState` não funciona: o lint do
+> React Compiler barra (`react-hooks/set-state-in-effect`), e com razão — gera
+> renders em cascata.
+
 ## 4. Convenções obrigatórias
 
 ### 4.1 MUI v9 — só `sx`
@@ -304,7 +340,23 @@ const azulProfundo = palette.mode === "dark" ? t.accent2Ramp[200] : t.accent2Ram
 Já nos mordeu no card de depoimento da landing. Ao fixar uma cor literal de um
 lado, teste os dois temas.
 
-### 4.6 Formatação de moeda
+### 4.6 Datas: nunca `new Date("2026-08-01")`
+
+A string ISO só com data é interpretada como **UTC**. No fuso do Brasil isso
+volta um dia: `new Date("2026-08-01")` vira 31/07 às 21h local, e o dia sai
+errado em toda a UI.
+
+Use os helpers de `src/lib/periodo.js`, que partem a string na mão e remontam
+com `new Date(ano, mes, dia)` — construtor local:
+
+```js
+import { dataDeISO, diaCurto, periodoDe } from "../lib/periodo";
+```
+
+Rótulos de data saem de `Intl.DateTimeFormat("pt-BR", …)` pelo mesmo motivo da
+moeda (4.7): formatar à mão diverge entre ambientes.
+
+### 4.7 Formatação de moeda
 
 Sempre `money(n)` do `useAppData()` (ou `BRL` de `data/seed.js`). Nunca
 `toLocaleString` inline — locale divergente entre servidor e cliente também
@@ -316,11 +368,17 @@ quebra hidratação.
 
 **Tudo é mockado e em memória.** Nada persiste entre recarregamentos.
 
-- `data/seed.js` gera 42 entradas, 3 gastos, 4 materiais, 5 agendamentos
-- "Hoje" é fixo: `HOJE_ISO = "2026-08-01"` — datas são estáticas de propósito,
-  para o protótipo ser determinístico
+- `gerarSeed(hoje)` produz os dados **relativos ao dia corrente** — preenchendo
+  o mês atual e o anterior. Sem os dois, a comparação entre meses e a navegação
+  de período não teriam o que mostrar, e o app pareceria vazio em qualquer data
+  real. É determinístico: o mesmo `hoje` gera sempre o mesmo conjunto
 - Listas de domínio (`SERVICES`, `DURATIONS`, `STATUSES`, `METHODS`, `UNITS`)
   também vivem aí e alimentam os selects/segmented controls
+
+O faturamento do mês anterior é **calculado** a partir dos dados, e não uma
+constante — o `MES_ANTERIOR = 7420` que existia era um número inventado. Sem
+mês anterior, a Home mostra "primeiro mês com registros" em vez de dividir por
+zero.
 
 ---
 
@@ -351,6 +409,10 @@ Consequências que decorrem dessa escolha:
 
 Ordem sugerida:
 
+0. ~~**Datas reais.**~~ **Feito** (ver 3.7). Era pré-requisito, não passo
+   final: o app não tinha noção de período, e os rótulos "de agosto" eram texto
+   fixo somando *tudo* — 92% do "faturamento de agosto" era julho. Sem isso não
+   dava para desenhar os endpoints.
 1. **Contratos primeiro.** Extrair os tipos de `data/seed.js` para um contrato
    compartilhado (entrada, gasto, material, agendamento). O formato atual do
    `items`/`materiais`/`agenda` já é o modelo — mantê-lo como base do schema.
@@ -359,9 +421,17 @@ Ordem sugerida:
    `useAppData()` **não deve mudar** — os componentes não devem saber se o dado
    veio de mock ou de rede.
 3. **Estados de rede.** Loading/erro/otimista, via SWR (ver 6.2).
-4. **Datas reais.** Trocar `HOJE_ISO` fixo por data corrente — atenção: isso
-   reintroduz risco de hidratação, então a data deve vir do servidor ou ser
-   resolvida após a montagem.
+
+**O que o passo 0 já respondeu sobre a API.** O cliente pensa em `periodo`
+(`"2026-08"`) como chave, o que aponta para `GET /entradas?periodo=2026-08` e
+uma chave de cache SWR por período. E a Home precisa do **mês anterior junto**
+para calcular a variação — ou a API devolve os dois, ou o cliente faz duas
+requisições. É uma decisão de endpoint que o mock escondia.
+
+**O que continua em aberto no modelo.** `items` mistura entradas (`kind: "in"`)
+e gastos (`kind: "out"`) no mesmo array, com campos diferentes. Em memória é
+conveniente; em SQL vira duas tabelas ou uma com discriminador. Decidir
+deliberadamente, não traduzir no automático.
 
 ### 6.2 SWR — o cache de servidor (decidido, aguardando a API)
 

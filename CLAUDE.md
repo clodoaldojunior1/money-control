@@ -18,6 +18,10 @@ estrutura.**
 - **Formulários com React Hook Form**, dentro de cada sheet (o provider não
   guarda estado de formulário). Componentes MUI se ligam via os wrappers em
   `src/components/lash-studio/ui/form/`
+- **Período é a unidade de escopo**: `periodo` (`"2026-08"`) no provider recorta
+  entradas, gastos e totais; a Agenda é do dia. A data do cliente vem do
+  `useHoje()` — **nunca** `new Date()` durante o render (as rotas são
+  pré-renderizadas e isso quebra a hidratação)
 - **Dados 100% mockados e em memória** (`src/data/seed.js`). O próximo passo é
   uma **API NestJS separada** — decidida assim porque ela também vai servir um
   app mobile nativo no futuro. Por isso **Server Actions estão fora** (viraram
@@ -45,6 +49,9 @@ estrutura.**
 6. **As rampas tonais invertem no tema escuro.** `ramp[100]/ramp[800]` juntos
    funcionam nos dois temas; um lado da rampa com uma cor literal do outro
    lado, não — vira branco sobre branco no dark.
+7. **`new Date("2026-08-01")` é UTC** e volta um dia no nosso fuso. Datas
+   passam pelos helpers de `src/lib/periodo.js`, que remontam com
+   `new Date(ano, mes, dia)`.
 
 ## Verificação
 
