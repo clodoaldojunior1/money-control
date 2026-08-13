@@ -22,6 +22,8 @@ import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
@@ -98,6 +100,7 @@ export function AppShell() {
   const {
     tab, setTab, sheet, closeSheet, drawerOpen, openDrawer, closeDrawer,
     openContextualSheet, contextualSheet, snack, undo, hoje,
+    restaurarExemplo, podeSalvar,
   } = useAppData();
 
   const TabComponent = TAB_COMPONENTS[tab] ?? HomeTab;
@@ -143,6 +146,24 @@ export function AppShell() {
         {/* Content */}
         {/* A página rola no documento; nav e FAB são fixos, então o padding
             inferior reserva o espaço deles. */}
+        {/* Aviso fixo, não toast: a condição não passa enquanto a aba estiver
+            aberta, então some-lo depois de 4s esconderia perda de dados. */}
+        {!podeSalvar && (
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center", mx: 2.75, mb: 1.5, p: "9px 12px",
+              borderRadius: `${custom.radius.md}px`,
+              backgroundColor: alpha(t.danger, alphas.tint),
+              color: t.danger, fontSize: 12, fontWeight: 600,
+            }}
+          >
+            <WarningAmberRoundedIcon sx={{ fontSize: 17 }} />
+            <span>Este navegador não permite salvar — os dados se perdem ao fechar.</span>
+          </Stack>
+        )}
+
         <Box sx={{ flex: 1, px: 2.75, pb: 20 }}>
           <TabComponent />
         </Box>
@@ -247,6 +268,13 @@ export function AppShell() {
                 sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.text }}
               >
                 {isDark ? "Tema claro" : "Tema escuro"}
+              </Button>
+              <Button
+                onClick={restaurarExemplo}
+                startIcon={<RestartAltRoundedIcon sx={{ fontSize: 19 }} />}
+                sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.text }}
+              >
+                Restaurar dados de exemplo
               </Button>
               <Button
                 onClick={closeDrawer}

@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { BRL, gerarSeed } from "../data/seed";
 import { diaCurto, noPeriodo, periodoAnterior, periodoDe, periodoSeguinte } from "../lib/periodo";
+import { lerDados, salvarDados } from "../lib/armazenamento";
 
 const AppDataContext = createContext(null);
 
@@ -26,10 +27,13 @@ const SHEET_POR_ABA = {
  * estado abaixo podem semear os dados direto — sem efeito, sem estado nulo.
  */
 export function AppDataProvider({ children, hoje }) {
-  const [seedInicial] = useState(() => gerarSeed(hoje));
-  const [items, setItems] = useState(seedInicial.items);
-  const [materiais, setMateriais] = useState(seedInicial.materiais);
-  const [agenda, setAgenda] = useState(seedInicial.agenda);
+  // Dados salvos têm precedência sobre o seed. `lerDados()` devolve null só
+  // quando não há nada aproveitável — um conjunto vazio (a usuária apagou
+  // tudo) volta como arrays vazios e é respeitado.
+  const [inicial] = useState(() => lerDados() ?? gerarSeed(hoje));
+  const [items, setItems] = useState(inicial.items);
+  const [materiais, setMateriais] = useState(inicial.materiais);
+  const [agenda, setAgenda] = useState(inicial.agenda);
 
   const [periodo, setPeriodo] = useState(() => periodoDe(hoje));
 
@@ -56,6 +60,17 @@ export function AppDataProvider({ children, hoje }) {
     if (snack?.undo) snack.undo();
     setSnack(null);
   }, [snack]);
+
+  // Sonda de escrita, feita uma vez: se a primeira gravação falha (aba
+  // privada, cota estourada), ela vai falhar a sessão inteira. Guardar o
+  // resultado como constante deixa o aviso ser renderizado de forma
+  // declarativa, sem precisar de setState dentro de efeito.
+  const [podeSalvar] = useState(() => salvarDados(inicial));
+
+  // Uso canônico de efeito: sincronizar com um sistema externo.
+  useEffect(() => {
+    salvarDados({ items, materiais, agenda });
+  }, [items, materiais, agenda]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
@@ -214,6 +229,21 @@ export function AppDataProvider({ children, hoje }) {
     }));
   }, [editing, materiais, closeSheet, toast]);
 
+  /** Volta aos dados de exemplo. Destrutivo, mas reversível pelo snackbar. */
+  const restaurarExemplo = useCallback(() => {
+    const anterior = { items, materiais, agenda };
+    const novo = gerarSeed(hoje);
+    setItems(novo.items);
+    setMateriais(novo.materiais);
+    setAgenda(novo.agenda);
+    setDrawerOpen(false);
+    toast("Dados de exemplo restaurados", () => {
+      setItems(anterior.items);
+      setMateriais(anterior.materiais);
+      setAgenda(anterior.agenda);
+    });
+  }, [items, materiais, agenda, hoje, toast]);
+
   const contextualSheet = SHEET_POR_ABA[tab] ?? "entrada";
 
   const openContextualSheet = useCallback(() => {
@@ -273,6 +303,7 @@ export function AppDataProvider({ children, hoje }) {
     sheet, editing, isEdit: !!editing,
     drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
+    restaurarExemplo, podeSalvar,
     filtro, setFiltro,
     snack, undo,
 
@@ -286,6 +317,7 @@ export function AppDataProvider({ children, hoje }) {
     items, materiais, agenda, ledgerOut, entradas, totals, faturamentoAnterior,
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
+    restaurarExemplo, podeSalvar,
     filtro, snack, undo,
     openGasto, saveGasto, removeGasto,
     openAgenda, saveAgenda, removeAgenda,
