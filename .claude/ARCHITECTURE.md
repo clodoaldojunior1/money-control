@@ -52,7 +52,8 @@ src/
 │
 ├── lib/
 │   ├── periodo.js            datas e períodos (Intl pt-BR, sem armadilha UTC)
-│   └── useHoje.js            data do cliente sem quebrar hidratação
+│   ├── useHoje.js            data do cliente sem quebrar hidratação
+│   └── armazenamento.js      único ponto que fala com localStorage
 │
 ├── data/
 │   └── seed.js               gerarSeed(hoje) + BRL + listas de domínio
@@ -366,7 +367,37 @@ quebra hidratação.
 
 ## 5. Dados (estado atual)
 
-**Tudo é mockado e em memória.** Nada persiste entre recarregamentos.
+**Tudo é mockado, mas persiste no navegador.** Não há servidor; os dados vivem
+em `localStorage` e sobrevivem a recarregamentos.
+
+### 5.1 Persistência local
+
+`src/lib/armazenamento.js` é o **único ponto do app que fala com
+`localStorage`** — proposital, porque esta camada é intermediária: quando o SWR
+entrar (6.2) ela vira cache offline ou é descartada, sem tocar no resto.
+
+- Chave `lash-studio:dados`, valor `{ versao, salvoEm, items, materiais, agenda }`.
+- **Versão diferente descarta e re-semeia.** Suba `VERSAO` sempre que o formato
+  mudar — e ele vai mudar, já que `items` mistura entradas e gastos e deve
+  virar duas coleções. Descartar é preferível a quebrar o app de quem já tem
+  dados salvos.
+- `lerDados()` devolve `null` só quando não há nada aproveitável. Um conjunto
+  **vazio é um estado legítimo** (a usuária apagou tudo) e é respeitado — o
+  seed não pode ressuscitar por cima.
+- Nada lança: aba privada e cota estourada dão exceção, e o app precisa seguir
+  funcionando em memória. Se a primeira gravação falhar, `podeSalvar` fica
+  `false` e o `AppShell` mostra um aviso **fixo** — não um toast, porque a
+  condição não passa enquanto a aba estiver aberta, e some-la esconderia perda
+  de dados.
+
+Isto só é simples por causa de 3.7: o provider já monta depois de a data ser
+resolvida no cliente, então ler `localStorage` no inicializador de `useState` é
+seguro. Sem aquilo, persistência traria de volta o risco de hidratação.
+
+O drawer tem **"Restaurar dados de exemplo"**, que reusa o snackbar com
+Desfazer — sem diálogo de confirmação, consistente com o resto do app.
+
+### 5.2 O seed
 
 - `gerarSeed(hoje)` produz os dados **relativos ao dia corrente** — preenchendo
   o mês atual e o anterior. Sem os dois, a comparação entre meses e a navegação
@@ -457,6 +488,12 @@ Por que SWR, e não `useState` + axios cru:
 
 - **Loading/erro/revalidação** prontos, em vez de reimplementados por entidade.
 
+**E o `localStorage` que já existe (5.1)?** Vira uma decisão a tomar na hora:
+ou é descartado (o SWR passa a ser a única fonte), ou vira cache offline —
+`localStorage` como provider de cache inicial do SWR, o que casa com o item de
+PWA offline em 6.4. Por isso a camada está isolada num módulo só seu: trocar
+implica mexer em um arquivo, não em doze.
+
 Notas de adoção:
 
 - O `axios@^1.18.0` está no `package.json` desde o início e **não é importado
@@ -473,15 +510,16 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
 
 ### 6.4 Itens em aberto (não decididos)
 
-- **Persistência local** — `localStorage` foi considerado e adiado; faz sentido
-  como camada offline depois que a API existir
 - **Autenticação de verdade** — as telas `/login` e `/cadastro` existem e
   validam os campos, mas **não autenticam**: qualquer formulário válido
   navega para `/app`. Não há sessão, guarda de rota nem proteção de `/app`.
   Entra junto com a API (6.1). O drawer também tem perfil e "Sair" mockados
-- **Persistência do tema** — o modo claro/escuro vive só em estado React:
-  sobrevive à navegação entre rotas, mas volta ao claro a cada recarga. As
-  telas públicas ainda não têm controle para alterná-lo
+- **Persistência do tema** — os dados já persistem (5.1), mas o modo
+  claro/escuro não: ele vive só em estado React e volta ao claro a cada
+  recarga. Ficou de fora de propósito, porque é mais caro que o resto — o tema
+  afeta a **primeira pintura**, então sem um script bloqueante no `<head>` a
+  página aparece clara e pisca para escura. As telas públicas também não têm
+  controle para alterná-lo
 - **PWA de fato** — manifest, service worker, instalação. Hoje é "mobile-first",
   não instalável
 - **Resolver de schema (zod/yup)** — hoje a validação usa regras nativas do

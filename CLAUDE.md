@@ -22,10 +22,13 @@ estrutura.**
   entradas, gastos e totais; a Agenda é do dia. A data do cliente vem do
   `useHoje()` — **nunca** `new Date()` durante o render (as rotas são
   pré-renderizadas e isso quebra a hidratação)
-- **Dados 100% mockados e em memória** (`src/data/seed.js`). O próximo passo é
-  uma **API NestJS separada** — decidida assim porque ela também vai servir um
-  app mobile nativo no futuro. Por isso **Server Actions estão fora** (viraram
-  proxy nesse arranjo; ver seção 6.5 do ARCHITECTURE)
+- **Dados mockados** (`src/data/seed.js`) **mas persistidos** em `localStorage`
+  via `src/lib/armazenamento.js` — único ponto do app que toca o storage. Suba
+  a `VERSAO` de lá sempre que o formato mudar: versão diferente descarta e
+  re-semeia
+- O próximo passo é uma **API NestJS separada** — decidida assim porque ela
+  também vai servir um app mobile nativo no futuro. Por isso **Server Actions
+  estão fora** (viram proxy nesse arranjo; ver seção 6.5 do ARCHITECTURE)
 - **Quando a API existir, o cache de servidor será SWR** (decisão fechada).
   Regra: dado do servidor é do SWR, dado que o usuário está digitando é do RHF
 - **Rotas:** `/` landing, `/login`, `/cadastro` (públicas, só tema) e `/app`
