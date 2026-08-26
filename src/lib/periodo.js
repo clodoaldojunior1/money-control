@@ -6,8 +6,9 @@
  * 1. **Nunca `new Date("2026-08-01")`.** A string ISO só com data é
  *    interpretada como UTC; no fuso do Brasil isso volta um dia. Datas ISO são
  *    partidas na mão e remontadas com `new Date(ano, mes, dia)`, que é local.
- * 2. **Nada aqui roda durante o SSR.** Todas as funções que dependem do "agora"
- *    só devem ser chamadas depois da montagem — ver `AppDataProvider`.
+ * 2. **O que depende do "agora" não roda no servidor.** `hojeISO` e
+ *    `periodoAtual` só valem depois da montagem no cliente (ver `useHoje`); o
+ *    resto do arquivo é puro e a leitura do banco usa parte dele no servidor.
  *
  * Vocabulário: `iso` é um dia (`"2026-08-01"`), `periodo` é um mês
  * (`"2026-08"`).

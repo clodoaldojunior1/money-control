@@ -14,25 +14,31 @@ estrutura.**
   `tokens.js`, nunca hex solto no componente. Hoje não há **nenhum** literal de
   cor fora de `tokens.js`; transparência se faz com `alpha(token, alphas.x)`,
   nunca concatenando sufixo hex
-- Estado global em `src/context/AppDataProvider.jsx`, consumido via `useAppData()`
+- Estado global em `src/context/AppDataProvider.jsx`, consumido via `useAppData()`.
+  Ele **recebe os dados do servidor** por `dadosIniciais` — não busca nada
 - **Formulários com React Hook Form**, dentro de cada sheet (o provider não
   guarda estado de formulário). Componentes MUI se ligam via os wrappers em
   `src/components/lash-studio/ui/form/`
 - **Período é a unidade de escopo**: `periodo` (`"2026-08"`) no provider recorta
   entradas, gastos e totais; a Agenda é do dia. A data do cliente vem do
-  `useHoje()` — **nunca** `new Date()` durante o render (as rotas são
-  pré-renderizadas e isso quebra a hidratação)
+  `useHoje()` — **nunca** `new Date()` durante o render (o HTML vem do
+  servidor, e a data dele divergiria da do cliente na hidratação)
 - **Backend: Next fullstack** — Server Components leem, **Server Actions**
   escrevem, Postgres na Neon via Prisma, Auth.js v5 no login. Isto **substitui**
   o plano anterior de API NestJS; SWR foi descartado antes de entrar (não
   instale). Ver seção 6.1 do ARCHITECTURE
-- **O banco existe e está povoado, mas o app ainda não o usa** — hoje ele
-  continua em `localStorage` (`src/lib/armazenamento.js`). Ligar é a etapa 2
-- **Rotas:** `/` landing, `/login`, `/cadastro` (públicas, só tema) e `/app`
-  (o PWA, único envolvido pelo `AppDataProvider`). Dentro de `/app` as 5 abas
-  trocam por estado, não por navegação
+- **O banco é a fonte da verdade e o app lê dele.** `src/server/leitura.js` é a
+  **única** borda de conversão (Decimal → Number, Date → `"YYYY-MM-DD"`,
+  derivados) — é por isso que ligar o banco não mudou nenhum componente.
+  Não existe mais `localStorage`
+- **Escrita ainda não persiste.** Salvar/excluir mexe só no estado do provider
+  e some ao recarregar — é a etapa 3
+- **Rotas:** `/` landing, `/login`, `/cadastro` (públicas, estáticas, só tema)
+  e `/app` (dinâmica: `layout` Server → `page` Server que busca → `AppRoot`
+  client com `useHoje` + provider). Dentro de `/app` as 5 abas trocam por
+  estado, não por navegação
 - **Login/cadastro validam mas não autenticam** — qualquer formulário válido
-  entra em `/app`. Não há sessão nem guarda de rota até a API existir
+  entra em `/app`. Não há sessão nem guarda de rota até a etapa 4
 
 ## Armadilhas que já nos morderam
 
@@ -52,12 +58,18 @@ estrutura.**
 7. **`new Date("2026-08-01")` é UTC** e volta um dia no nosso fuso. Datas
    passam pelos helpers de `src/lib/periodo.js`, que remontam com
    `new Date(ano, mes, dia)`.
+8. **A mesma armadilha ao contrário no banco:** Prisma devolve `@db.Date` como
+   meia-noite **UTC**, então ali quem erra por um dia é o getter *local*. Use
+   `isoDeDataUTC`, e só na borda de leitura.
 
 ## Onde estamos
 
-Etapas 0 (período) e 1 (banco, schema, seed) **feitas**. Falta: 2 — app ler do
-servidor · 3 — gravar por Server Actions · 4 — Auth.js · 5 — deploy.
-Detalhe de cada uma em 6.1 do ARCHITECTURE.
+Etapas 0 (período), 1 (banco, schema, seed) e 2 (app lê do servidor) **feitas**.
+Falta: 3 — gravar por Server Actions · 4 — Auth.js · 5 — deploy. Detalhe de
+cada uma em 6.1 do ARCHITECTURE.
+
+Não há sessão: `src/server/usuario.js` devolve a única conta do banco, e é ele
+que vira o `requireUser()` na etapa 4.
 
 Banco: projeto **"Studio de Controle"** na Neon. Comandos `yarn db:migrate`,
 `db:seed`, `db:studio`. Segredos em `.env.local` (fora do git); o template sem
@@ -67,6 +79,11 @@ valores é o `.env.example`.
 
 `yarn lint` + validar no navegador em viewport mobile (5 abas, tema claro/escuro,
 FAB → sheet → salvar/editar/excluir com desfazer) e conferir o console limpo.
+
+Com o banco ligado, confira também **números** contra ele (`yarn db:studio`):
+conversão errada na borda dá uma tela que parece certa com valores trocados.
+O badge do Next dev tools fica em cima da aba "Início" — clique automatizado
+ali acerta o badge, não o app.
 
 ### Ao medir a UI pelo DOM
 

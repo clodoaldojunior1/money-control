@@ -40,8 +40,8 @@ src/
 │   ├── login/page.jsx        /login
 │   ├── cadastro/page.jsx     /cadastro
 │   └── app/
-│       ├── layout.jsx        envolve só o PWA com <AppDataProvider>
-│       └── page.jsx          /app → <AppShell />
+│       ├── layout.jsx        Server Component; guarda de sessão na etapa 4
+│       └── page.jsx          /app → busca no banco → <AppRoot dadosIniciais>
 │
 ├── theme/                    Design system (fonte única de verdade visual)
 │   ├── tokens.js             tokens light/dark: cores, rampas, sombras, raios
@@ -55,10 +55,14 @@ src/
 ├── lib/
 │   ├── periodo.js            datas e períodos (Intl pt-BR, sem armadilha UTC)
 │   ├── useHoje.js            data do cliente sem quebrar hidratação
-│   └── armazenamento.js      único ponto que fala com localStorage
+│   └── prisma.js             instância única do client (driver adapter Neon)
+│
+├── server/                   só roda no servidor
+│   ├── usuario.js            o dono dos dados (vira requireUser na etapa 4)
+│   └── leitura.js            Prisma → formato da UI (borda de conversão)
 │
 ├── data/
-│   └── seed.js               gerarSeed(hoje) + BRL + listas de domínio
+│   └── dominio.js            BRL + listas de domínio + CAT_POR_SUB
 │
 ├── components/onboarding/    telas públicas
 │   ├── PublicShell.jsx       moldura centralizada (mesma largura do app)
@@ -69,6 +73,8 @@ src/
 │   └── PasswordStrength.jsx  medidor de força (+ forcaDaSenha)
 │
 └── components/lash-studio/
+    ├── AppRoot.jsx           fronteira servidor→app: espera `hoje`, mostra o
+    │                         skeleton e monta o <AppDataProvider>
     ├── AppShell.jsx          composition root: topbar, tabs, nav, FAB,
     │                         drawer, bottom sheet, snackbar
     ├── tabs/                 uma tela por aba (Home, Gastos, Agenda,
@@ -163,8 +169,8 @@ Consequência aceita: as abas não são deep-linkáveis. Se isso passar a import
 transformá-las em segmentos sob `/app` e subir o shell para o
 `src/app/app/layout.jsx`, que já existe.
 
-O `AppDataProvider` vive nesse layout e **não** no root — as telas públicas não
-carregam o estado de domínio.
+O `AppDataProvider` vive dentro de `/app` (no `AppRoot`, ver 5.2) e **não** no
+root — as telas públicas não carregam o estado de domínio.
 
 ### 3.3 Um provider para todo o domínio
 
@@ -172,9 +178,12 @@ carregam o estado de domínio.
 `useAppData()`:
 
 - **Domínio:** `items` (ledger unificado: entradas `kind:"in"` + gastos
-  `kind:"out"`), `materiais`, `agenda`
+  `kind:"out"`), `materiais`, `agendamentos` — tudo vindo do servidor por
+  `dadosIniciais` (5.1)
 - **Derivados (`useMemo`):** `entradas`, `ledgerOut` (gastos + materiais
   projetados como gasto), `totals` (faturamento, trabalho, pessoal, materiais)
+  e `agenda` — os agendamentos de `hoje`, porque a agenda é do dia e não do
+  período
 - **UI:** `tab`, `sheet`, `drawerOpen`, `filtro`, `snack`
 - **Edição:** `editing` — o registro aberto no sheet (ou `null` para criação) —
   e `isEdit`. Como só um sheet abre por vez, um único `editing` cobre as
@@ -359,22 +368,28 @@ import { dataDeISO, diaCurto, periodoDe } from "../lib/periodo";
 Rótulos de data saem de `Intl.DateTimeFormat("pt-BR", …)` pelo mesmo motivo da
 moeda (4.7): formatar à mão diverge entre ambientes.
 
+**A mesma armadilha ao contrário, vindo do banco.** Prisma devolve colunas
+`@db.Date` como meia-noite **UTC**, e aí quem erra é o construtor local: ler
+com `isoDeData` (getters locais) devolve o dia anterior. Datas do banco passam
+por `isoDeDataUTC`, e essa conversão mora numa só borda — `src/server/leitura.js`
+(5.1).
+
 ### 4.7 Formatação de moeda
 
-Sempre `money(n)` do `useAppData()` (ou `BRL` de `data/seed.js`). Nunca
+Sempre `money(n)` do `useAppData()` (ou `BRL` de `data/dominio.js`). Nunca
 `toLocaleString` inline — locale divergente entre servidor e cliente também
 quebra hidratação.
 
 ---
 
-## 5. Dados (estado atual)
+## 5. Dados
 
-> **Em migração.** O banco Postgres já existe e está povoado (5.0), mas **o app
-> ainda não o usa** — continua lendo e gravando em `localStorage`. A ligação
-> acontece nas etapas 2 e 3 de 6.1. Enquanto isso, 5.1 descreve o que roda
-> hoje, e vai ser removido quando o servidor virar a fonte da verdade.
+O banco é a **fonte da verdade**. O app lê dele a cada requisição (5.1) e, até
+a etapa 3, as alterações vivem só no estado do provider — editar e recarregar
+desfaz. Não há mais cópia local: a camada de `localStorage` que existia foi
+removida (5.3).
 
-### 5.0 O banco (Neon + Prisma) — pronto, ainda desligado do app
+### 5.0 O banco (Neon + Prisma)
 
 Postgres gerenciado na Neon, projeto **"Studio de Controle"** (`us-east-2`,
 PG 18). Quatro tabelas de domínio (`Entrada`, `Gasto`, `Material`,
@@ -390,52 +405,71 @@ porque o client não conecta mais pela URL).
 `db:seed`, `db:studio`, `db:generate`. Variáveis em `.env.example` — os valores
 reais ficam em `.env.local`, fora do git.
 
-**Detalhe que a etapa 2 precisa tratar:** `Decimal` do Prisma não é
-serializável como prop de Server Component, e `Date` não é o formato que a UI
-fala. A conversão (`Decimal → Number`, `Date → "YYYY-MM-DD"`) acontece na
-borda da camada de leitura, para nenhum componente mudar.
+### 5.1 Leitura: a borda de conversão
 
-### 5.1 Persistência local (a ser removida na etapa 2)
+`src/server/leitura.js` é o único ponto que traduz banco → UI, e existe porque
+duas coisas do Prisma não atravessam a fronteira do Server Component:
 
-`src/lib/armazenamento.js` é o **único ponto do app que fala com
-`localStorage`** — proposital, porque esta camada sempre foi intermediária:
-quando o servidor virar a fonte da verdade, ela sai inteira, sem tocar no
-resto.
+- **`Decimal` não é serializável** como prop. Vira `Number` aqui. Cabe:
+  `Decimal(10,2)` é dinheiro em centavos, muito abaixo do inteiro seguro do JS,
+  e a precisão decimal é responsabilidade do banco, que é onde a soma acontece.
+- **`Date` não é o formato que a UI fala.** Vira `"YYYY-MM-DD"`.
 
-- Chave `lash-studio:dados`, valor `{ versao, salvoEm, items, materiais, agenda }`.
-- **Versão diferente descarta e re-semeia.** Suba `VERSAO` sempre que o formato
-  mudar — e ele vai mudar, já que `items` mistura entradas e gastos e deve
-  virar duas coleções. Descartar é preferível a quebrar o app de quem já tem
-  dados salvos.
-- `lerDados()` devolve `null` só quando não há nada aproveitável. Um conjunto
-  **vazio é um estado legítimo** (a usuária apagou tudo) e é respeitado — o
-  seed não pode ressuscitar por cima.
-- Nada lança: aba privada e cota estourada dão exceção, e o app precisa seguir
-  funcionando em memória. Se a primeira gravação falhar, `podeSalvar` fica
-  `false` e o `AppShell` mostra um aviso **fixo** — não um toast, porque a
-  condição não passa enquanto a aba estiver aberta, e some-la esconderia perda
-  de dados.
+Junto nascem os campos derivados (`date` curto, `cat`, `kind`), pelo mesmo
+motivo de não serem coluna. O formato de saída é exatamente o que o seed
+mockado produzia — foi assim que a etapa 2 ligou o banco **sem mudar nenhum
+componente de UI**.
 
-Isto só é simples por causa de 3.7: o provider já monta depois de a data ser
-resolvida no cliente, então ler `localStorage` no inicializador de `useState` é
-seguro. Sem aquilo, persistência traria de volta o risco de hidratação.
+**Armadilha de fuso, versão do banco.** Prisma devolve colunas `@db.Date` como
+meia-noite **UTC** — medido contra registros de dia conhecido. Convertê-las com
+os getters locais devolve o dia anterior em qualquer fuso a oeste de Greenwich.
+Por isso existe `isoDeDataUTC` em `src/lib/periodo.js`, separada de `isoDeData`:
+são conversões opostas, e usar uma pela outra erra silenciosamente por um dia.
 
-O drawer tem **"Restaurar dados de exemplo"**, que reusa o snackbar com
-Desfazer — sem diálogo de confirmação, consistente com o resto do app.
+**Busca tudo da conta, de propósito.** A navegação de período filtra no cliente
+por prefixo do `iso` (3.7), e é isso que a mantém instantânea e sem refetch.
+São dezenas de registros por ano de uso. Quando o volume pesar, o corte passa a
+ser por período — e aí a navegação precisa virar URL, para o servidor saber o
+que buscar.
 
-### 5.2 O seed
+**Quem é o usuário.** `src/server/usuario.js` devolve a única conta do banco.
+É placeholder assumido: na etapa 4 ele lê a sessão e vira o `requireUser()`,
+sem que nenhum chamador mude.
 
-- `gerarSeed(hoje)` produz os dados **relativos ao dia corrente** — preenchendo
-  o mês atual e o anterior. Sem os dois, a comparação entre meses e a navegação
-  de período não teriam o que mostrar, e o app pareceria vazio em qualquer data
-  real. É determinístico: o mesmo `hoje` gera sempre o mesmo conjunto
-- Listas de domínio (`SERVICES`, `DURATIONS`, `STATUSES`, `METHODS`, `UNITS`)
-  também vivem aí e alimentam os selects/segmented controls
+### 5.2 A forma de `/app`
 
-O faturamento do mês anterior é **calculado** a partir dos dados, e não uma
-constante — o `MES_ANTERIOR = 7420` que existia era um número inventado. Sem
-mês anterior, a Home mostra "primeiro mês com registros" em vez de dividir por
-zero.
+```
+app/layout.jsx   Server  — nada hoje; guarda de sessão na etapa 4
+app/page.jsx     Server  — carregarDadosIniciais() → <AppRoot dadosIniciais>
+AppRoot.jsx      Client  — useHoje() → skeleton → <AppDataProvider>
+```
+
+O provider morava no layout, e por isso a etapa 2 começou por aqui: **o layout
+fica acima da página**, então dado buscado na página não subiria até ele.
+
+A divisão em três é o que permite as duas origens conviverem: os dados vêm do
+servidor, `hoje` vem do cliente (3.7), e só o segundo precisa esperar a
+montagem. Enquanto espera, o `AppBootSkeleton`.
+
+A rota é `dynamic = "force-dynamic"`: pré-renderizar congelaria os dados no
+build e ainda faria o build exigir acesso ao banco. As rotas públicas seguem
+estáticas — só `/app` é dinâmica.
+
+**A agenda é do dia.** O filtro por `hoje` é do provider e é novo: com o seed
+mockado só existiam agendamentos de hoje, e a lista inteira já era "o dia".
+Vinda do banco ela traz todos os dias.
+
+### 5.3 A persistência local, removida na etapa 2
+
+`src/lib/armazenamento.js` guardava tudo em `localStorage` e sempre foi
+declaradamente intermediária. Saiu inteira quando o servidor virou a fonte da
+verdade: dois donos do mesmo dado divergem já na primeira gravação. Com ela
+foram embora o aviso fixo de "este navegador não permite salvar" e o
+`gerarSeed` do mock.
+
+**"Restaurar dados de exemplo"** ficou no drawer como "Em breve". Restaurar no
+cliente recriaria a divergência; hoje quem restaura é `yarn db:seed`, e o botão
+volta na etapa 3 como Server Action.
 
 ---
 
@@ -459,8 +493,8 @@ viável.
 
 - **SWR sai de cena** (6.2). Foi escolhido para conversar com uma API externa;
   com Server Components lendo e `revalidatePath` invalidando, fica sem função.
-- **`localStorage` sai** (5.1). O servidor vira a fonte da verdade, e dois
-  donos do mesmo dado dariam divergência.
+- **`localStorage` saiu** (5.3). O servidor virou a fonte da verdade, e dois
+  donos do mesmo dado divergem já na primeira gravação.
 - **`items` foi separado** em `Entrada` e `Gasto` no schema — a pendência de
   modelagem que o mock escondia está resolvida.
 
@@ -470,17 +504,18 @@ viável.
 |---|---|---|
 | 0 | Datas reais e noção de período (3.7) | ✅ feito |
 | 1 | Banco, schema e seed (5.0) | ✅ feito |
-| 2 | App **lê** do servidor | pendente |
+| 2 | App **lê** do servidor (5.1, 5.2) | ✅ feito |
 | 3 | App **grava** por Server Actions | pendente |
 | 4 | Auth.js v5 (e-mail e senha) | pendente |
 | 5 | Deploy na Vercel | pendente |
 
-**Etapa 2 — leitura.** O provider hoje vive no *layout* de `/app`, que é
-client e fica **acima** da página: dado buscado na página não sobe até ele. A
-reestruturação é `layout` → Server Component (vira a guarda de sessão na etapa
-4), `page` → Server Component que busca e passa `dadosIniciais`, e um
-`AppRoot` client novo com `useHoje` + skeleton + provider. A conversão de tipos
-acontece na borda (ver 5.0), então **nenhum componente de UI muda**.
+**Etapa 2 — leitura. Feita.** O provider vivia no *layout* de `/app`, que é
+client e fica **acima** da página: dado buscado na página não subia até ele.
+Ficou `layout` → Server Component (guarda de sessão na etapa 4), `page` →
+Server Component que busca, e o `AppRoot` client com `useHoje` + skeleton +
+provider. A conversão de tipos acontece numa borda só, e por isso **nenhum
+componente de UI mudou**. O detalhe está em 5.1 e 5.2; o `localStorage` saiu
+junto (5.3).
 
 **Etapa 3 — escrita.** `src/actions/*.js` com `"use server"`, cada ação
 passando por `requireUser()` e terminando em `revalidatePath("/app")`. As 12
@@ -524,7 +559,7 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
   validam os campos, mas **não autenticam**: qualquer formulário válido
   navega para `/app`. Não há sessão, guarda de rota nem proteção de `/app`.
   Entra junto com a API (6.1). O drawer também tem perfil e "Sair" mockados
-- **Persistência do tema** — os dados já persistem (5.1), mas o modo
+- **Persistência do tema** — os dados vivem no banco (5.0), mas o modo
   claro/escuro não: ele vive só em estado React e volta ao claro a cada
   recarga. Ficou de fora de propósito, porque é mais caro que o resto — o tema
   afeta a **primeira pintura**, então sem um script bloqueante no `<head>` a
@@ -592,6 +627,14 @@ yarn lint
 E validar no navegador em viewport mobile: trocar as 5 abas, alternar tema
 (topbar e drawer), abrir o FAB em cada aba, salvar/editar/excluir com desfazer,
 e conferir o console sem erros de hidratação.
+
+Com o banco ligado, vale conferir **números** contra ele, e não só a tela: uma
+conversão errada na borda (5.1) produz um app que parece certo com valores
+trocados. `yarn db:studio` mostra as tabelas.
+
+Um detalhe do ambiente: o badge do Next.js dev tools fica no canto inferior
+esquerdo, **em cima da aba "Início"**. Cliques automatizados naquele ponto
+acertam o badge, não o app.
 
 ### 7.1 Medindo a UI pelo DOM — armadilha de instrumento
 
