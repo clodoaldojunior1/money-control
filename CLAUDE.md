@@ -22,15 +22,12 @@ estrutura.**
   entradas, gastos e totais; a Agenda é do dia. A data do cliente vem do
   `useHoje()` — **nunca** `new Date()` durante o render (as rotas são
   pré-renderizadas e isso quebra a hidratação)
-- **Dados mockados** (`src/data/seed.js`) **mas persistidos** em `localStorage`
-  via `src/lib/armazenamento.js` — único ponto do app que toca o storage. Suba
-  a `VERSAO` de lá sempre que o formato mudar: versão diferente descarta e
-  re-semeia
-- O próximo passo é uma **API NestJS separada** — decidida assim porque ela
-  também vai servir um app mobile nativo no futuro. Por isso **Server Actions
-  estão fora** (viram proxy nesse arranjo; ver seção 6.5 do ARCHITECTURE)
-- **Quando a API existir, o cache de servidor será SWR** (decisão fechada).
-  Regra: dado do servidor é do SWR, dado que o usuário está digitando é do RHF
+- **Backend: Next fullstack** — Server Components leem, **Server Actions**
+  escrevem, Postgres na Neon via Prisma, Auth.js v5 no login. Isto **substitui**
+  o plano anterior de API NestJS; SWR foi descartado antes de entrar (não
+  instale). Ver seção 6.1 do ARCHITECTURE
+- **O banco existe e está povoado, mas o app ainda não o usa** — hoje ele
+  continua em `localStorage` (`src/lib/armazenamento.js`). Ligar é a etapa 2
 - **Rotas:** `/` landing, `/login`, `/cadastro` (públicas, só tema) e `/app`
   (o PWA, único envolvido pelo `AppDataProvider`). Dentro de `/app` as 5 abas
   trocam por estado, não por navegação
@@ -55,6 +52,16 @@ estrutura.**
 7. **`new Date("2026-08-01")` é UTC** e volta um dia no nosso fuso. Datas
    passam pelos helpers de `src/lib/periodo.js`, que remontam com
    `new Date(ano, mes, dia)`.
+
+## Onde estamos
+
+Etapas 0 (período) e 1 (banco, schema, seed) **feitas**. Falta: 2 — app ler do
+servidor · 3 — gravar por Server Actions · 4 — Auth.js · 5 — deploy.
+Detalhe de cada uma em 6.1 do ARCHITECTURE.
+
+Banco: projeto **"Studio de Controle"** na Neon. Comandos `yarn db:migrate`,
+`db:seed`, `db:studio`. Segredos em `.env.local` (fora do git); o template sem
+valores é o `.env.example`.
 
 ## Verificação
 

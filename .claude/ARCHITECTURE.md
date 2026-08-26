@@ -18,7 +18,9 @@ verdade visual; o código o traduz para MUI.
 | Estilo | Tema MUI centralizado (`src/theme/`) | sem CSS Modules, sem styled-components |
 | Estado | React Context (`src/context/`) | sem Redux/Zustand |
 | Formulários | React Hook Form | validação com regras nativas, sem zod/yup |
-| Cache de servidor | **SWR** | decidido, entra junto com o backend — ver 6.2 |
+| Backend | **Next fullstack** — Server Components leem, Server Actions escrevem | ver 6.1 |
+| Banco | **Postgres na Neon** via Prisma | pronto e povoado; o app ainda não o usa — ver 5.0 |
+| Autenticação | **Auth.js v5** (e-mail e senha) | pendente, etapa 4 |
 | Fontes | `next/font/google` — Instrument Sans (títulos), Plus Jakarta Sans (corpo) | expostas como `--font-heading` / `--font-body` |
 | Linguagem | JavaScript (`.jsx`/`.js`) | decisão explícita: **não** TypeScript, por produtividade. O pacote `typescript` está em devDependencies apenas porque `eslint-config-next` exige — não escrevemos `.ts` |
 | Gerenciador | **Yarn** | `yarn dev`, `yarn lint`, `yarn build` |
@@ -367,14 +369,38 @@ quebra hidratação.
 
 ## 5. Dados (estado atual)
 
-**Tudo é mockado, mas persiste no navegador.** Não há servidor; os dados vivem
-em `localStorage` e sobrevivem a recarregamentos.
+> **Em migração.** O banco Postgres já existe e está povoado (5.0), mas **o app
+> ainda não o usa** — continua lendo e gravando em `localStorage`. A ligação
+> acontece nas etapas 2 e 3 de 6.1. Enquanto isso, 5.1 descreve o que roda
+> hoje, e vai ser removido quando o servidor virar a fonte da verdade.
 
-### 5.1 Persistência local
+### 5.0 O banco (Neon + Prisma) — pronto, ainda desligado do app
+
+Postgres gerenciado na Neon, projeto **"Studio de Controle"** (`us-east-2`,
+PG 18). Quatro tabelas de domínio (`Entrada`, `Gasto`, `Material`,
+`Agendamento`) mais `User`, todas com `userId` e índice `[userId, data]`.
+
+`prisma/schema.prisma` carrega os porquês no topo — vale ler antes de mexer:
+`Decimal(10,2)` para dinheiro, `@db.Date` sem hora, campo derivado não vira
+coluna, e as duas mudanças do Prisma 7 que ditaram o caminho (generator legado
+`prisma-client-js`, porque o novo emite TypeScript; e o driver adapter do Neon,
+porque o client não conecta mais pela URL).
+
+`prisma/seed.mjs` é autocontido e idempotente. Comandos: `db:migrate`,
+`db:seed`, `db:studio`, `db:generate`. Variáveis em `.env.example` — os valores
+reais ficam em `.env.local`, fora do git.
+
+**Detalhe que a etapa 2 precisa tratar:** `Decimal` do Prisma não é
+serializável como prop de Server Component, e `Date` não é o formato que a UI
+fala. A conversão (`Decimal → Number`, `Date → "YYYY-MM-DD"`) acontece na
+borda da camada de leitura, para nenhum componente mudar.
+
+### 5.1 Persistência local (a ser removida na etapa 2)
 
 `src/lib/armazenamento.js` é o **único ponto do app que fala com
-`localStorage`** — proposital, porque esta camada é intermediária: quando o SWR
-entrar (6.2) ela vira cache offline ou é descartada, sem tocar no resto.
+`localStorage`** — proposital, porque esta camada sempre foi intermediária:
+quando o servidor virar a fonte da verdade, ela sai inteira, sem tocar no
+resto.
 
 - Chave `lash-studio:dados`, valor `{ versao, salvoEm, items, materiais, agenda }`.
 - **Versão diferente descarta e re-semeia.** Suba `VERSAO` sempre que o formato
@@ -415,93 +441,77 @@ zero.
 
 ## 6. Planejamento futuro
 
-### 6.1 Próximo passo definido — backend próprio
+### 6.1 Backend: Next fullstack (decidido em 2026-08-26)
 
-**Decidido (2026-08-04): API NestJS separada, não Next fullstack.**
+> **Esta decisão substitui a anterior.** Até 2026-08-04 o plano era uma **API
+> NestJS separada**, justificada por um app mobile nativo que consumiria a
+> mesma API. O app mobile deixou de ser certo — e isso é exatamente o gatilho
+> que estava registrado em 6.5. A alternativa recusada virou a escolha.
 
-O motivo é escopo, não preferência técnica: a API precisa servir **mais de um
-cliente**. O cenário previsto é um **app mobile nativo** consumindo a mesma API
-que este PWA. Uma API independente é reaproveitável; lógica de negócio dentro
-do Next não é.
+**Arquitetura:** Next fullstack. Server Components leem, **Server Actions**
+escrevem, Postgres na Neon via Prisma, Auth.js v5 para login.
 
-Consequências que decorrem dessa escolha:
+**Não é irreversível.** Se o app nativo voltar à mesa, Route Handlers expõem a
+mesma lógica como API — menos elegante que um NestJS desenhado para isso, mas
+viável.
 
-- **Server Actions estão fora** (ver 6.5). As mutações vão do navegador direto
-  para o NestJS.
-- **Contrato vira produto.** Como a API terá mais de um consumidor, o passo 1
-  abaixo deixa de ser burocracia: versionamento e compatibilidade passam a
-  importar de verdade.
-- **Custo aceito:** dois projetos para manter e deployar.
+**Consequências:**
 
-> **Decidido: o cache de servidor será SWR.** A partir do momento em que a API
-> existir, os dados de domínio (`items`, `materiais`, `agenda`) deixam de ser
-> `useState` com seed e passam a ser servidos por SWR. Não é proposta em
-> aberto — é a escolha do projeto. Ver 6.2.
+- **SWR sai de cena** (6.2). Foi escolhido para conversar com uma API externa;
+  com Server Components lendo e `revalidatePath` invalidando, fica sem função.
+- **`localStorage` sai** (5.1). O servidor vira a fonte da verdade, e dois
+  donos do mesmo dado dariam divergência.
+- **`items` foi separado** em `Entrada` e `Gasto` no schema — a pendência de
+  modelagem que o mock escondia está resolvida.
 
-Ordem sugerida:
+#### Etapas
 
-0. ~~**Datas reais.**~~ **Feito** (ver 3.7). Era pré-requisito, não passo
-   final: o app não tinha noção de período, e os rótulos "de agosto" eram texto
-   fixo somando *tudo* — 92% do "faturamento de agosto" era julho. Sem isso não
-   dava para desenhar os endpoints.
-1. **Contratos primeiro.** Extrair os tipos de `data/seed.js` para um contrato
-   compartilhado (entrada, gasto, material, agendamento). O formato atual do
-   `items`/`materiais`/`agenda` já é o modelo — mantê-lo como base do schema.
-2. **Camada de acesso.** Introduzir `src/services/` e fazer o
-   `AppDataProvider` consumir dela em vez do seed. A API pública do
-   `useAppData()` **não deve mudar** — os componentes não devem saber se o dado
-   veio de mock ou de rede.
-3. **Estados de rede.** Loading/erro/otimista, via SWR (ver 6.2).
+| | | |
+|---|---|---|
+| 0 | Datas reais e noção de período (3.7) | ✅ feito |
+| 1 | Banco, schema e seed (5.0) | ✅ feito |
+| 2 | App **lê** do servidor | pendente |
+| 3 | App **grava** por Server Actions | pendente |
+| 4 | Auth.js v5 (e-mail e senha) | pendente |
+| 5 | Deploy na Vercel | pendente |
 
-**O que o passo 0 já respondeu sobre a API.** O cliente pensa em `periodo`
-(`"2026-08"`) como chave, o que aponta para `GET /entradas?periodo=2026-08` e
-uma chave de cache SWR por período. E a Home precisa do **mês anterior junto**
-para calcular a variação — ou a API devolve os dois, ou o cliente faz duas
-requisições. É uma decisão de endpoint que o mock escondia.
+**Etapa 2 — leitura.** O provider hoje vive no *layout* de `/app`, que é
+client e fica **acima** da página: dado buscado na página não sobe até ele. A
+reestruturação é `layout` → Server Component (vira a guarda de sessão na etapa
+4), `page` → Server Component que busca e passa `dadosIniciais`, e um
+`AppRoot` client novo com `useHoje` + skeleton + provider. A conversão de tipos
+acontece na borda (ver 5.0), então **nenhum componente de UI muda**.
 
-**O que continua em aberto no modelo.** `items` mistura entradas (`kind: "in"`)
-e gastos (`kind: "out"`) no mesmo array, com campos diferentes. Em memória é
-conveniente; em SQL vira duas tabelas ou uma com discriminador. Decidir
-deliberadamente, não traduzir no automático.
+**Etapa 3 — escrita.** `src/actions/*.js` com `"use server"`, cada ação
+passando por `requireUser()` e terminando em `revalidatePath("/app")`. As 12
+ações do provider viram `async`. Decisão deliberada: **esperar a resposta em
+vez de atualização otimista** — são 100–200ms, imperceptíveis aqui, e evitam
+reconciliar ids temporários. Desfazer chama a ação inversa preservando o `id`.
 
-### 6.2 SWR — o cache de servidor (decidido, aguardando a API)
+**Etapa 4 — auth.** Armadilha conhecida: o middleware roda no runtime edge,
+onde bcrypt e Prisma não funcionam. A saída é a config dividida do Auth.js —
+`auth.config.js` leve para o middleware, `auth.js` completo no runtime Node.
+Sessão em JWT (obrigatório com Credentials), hash com `bcryptjs` (puro JS, sem
+binário nativo para quebrar no deploy). `/cadastro` fica fechado: por ora a
+conta é só do dono, criada pelo seed.
 
-**Regra:** dado que vem do servidor é do SWR; dado que o usuário está digitando
-é do React Hook Form (ver 3.4). As duas bibliotecas são complementares e não se
-substituem — SWR nunca vê o formulário antes do submit.
+**Sobre o Auth da Neon.** A onboarding deles oferece Better Auth gerenciado.
+Foi avaliado e recusado: amarra o login ao fornecedor. Usamos a Neon **apenas
+como Postgres** — o `.neon` na raiz registra `features: ["database","auth"]`,
+mas isso reflete a onboarding, não a decisão.
 
-Por que SWR, e não `useState` + axios cru:
+### 6.2 SWR — descartado antes de entrar
 
-- **Re-render por chave.** Hoje qualquer mudança em `items` re-renderiza todos
-  os consumidores do contexto. Com SWR cada componente assina só as chaves que
-  usa — a `MateriaisTab` para de re-renderizar quando uma entrada muda.
-- **Otimista + rollback nativo.** O padrão de undo que já temos (3.5) é
-  otimista feito à mão: ele cobre "o usuário se arrependeu", mas não "a API
-  recusou". O `mutate` cobre os dois:
+Estava decidido enquanto o backend seria uma API NestJS separada, e o
+raciocínio continua válido *para aquele arranjo*: assinatura por chave,
+otimista com rollback nativo, loading e erro prontos.
 
-  ```js
-  mutate("/gastos", api.remove(id), {
-    optimisticData: lista.filter((i) => i.id !== id),
-    rollbackOnError: true,
-  });
-  ```
+Com Next fullstack ele perde a função — Server Components leem no servidor e
+`revalidatePath` invalida. **Não instalar.**
 
-- **Loading/erro/revalidação** prontos, em vez de reimplementados por entidade.
-
-**E o `localStorage` que já existe (5.1)?** Vira uma decisão a tomar na hora:
-ou é descartado (o SWR passa a ser a única fonte), ou vira cache offline —
-`localStorage` como provider de cache inicial do SWR, o que casa com o item de
-PWA offline em 6.4. Por isso a camada está isolada num módulo só seu: trocar
-implica mexer em um arquivo, não em doze.
-
-Notas de adoção:
-
-- O `axios@^1.18.0` está no `package.json` desde o início e **não é importado
-  em lugar nenhum**. Ao criar `src/services/`, decidir entre usá-lo de fato
-  como `fetcher` do SWR ou removê-lo em favor de `fetch`.
-- TanStack Query foi considerado como alternativa: mais robusto em mutations e
-  com devtools, ao custo de mais peso. **Ficamos com SWR** pela simplicidade e
-  por ser da própria Vercel, alinhado ao Next.
+O que faria voltar: um cliente que busque dados pelo navegador em vez de
+receber do servidor — por exemplo, se as abas virarem rotas com busca no
+cliente, ou se o app nativo ressuscitar e houver uma API para consumir.
 
 ### 6.3 Módulos marcados "Em breve" no drawer
 
@@ -532,36 +542,35 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
 Registradas com o motivo e com **o sinal que deveria fazer reconsiderar** — para
 a discussão não voltar daqui a meses sem o contexto.
 
-#### Next fullstack + Server Actions (recusado em 2026-08-04)
+#### Next fullstack + Server Actions — recusado em 2026-08-04, **adotado em 2026-08-26**
 
-**A proposta:** dispensar o NestJS e fazer o Next ser o backend — Route
-Handlers e Server Actions falando direto com o banco via ORM. Formulários
-enviariam por `action`, com `useActionState` cobrindo pending/erro.
+> **Este é o registro do gatilho funcionando.** A recusa trazia escrito o sinal
+> que a inverteria; o sinal apareceu, e a decisão virou. Fica aqui como
+> histórico — a arquitetura vigente está em 6.1.
 
-**Por que foi recusado:** a API precisa servir um app mobile nativo no futuro
-(6.1). Server Actions rodam no servidor do Next; com um NestJS atrás, elas
-viram um proxy — `navegador → Next → NestJS → banco` — que adiciona um salto de
-rede e uma camada de código sem entregar nada em troca.
+**Por que foi recusado na época:** a API precisaria servir um app mobile nativo.
+Server Actions rodam no servidor do Next; com um NestJS atrás, virariam um
+proxy — `navegador → Next → NestJS → banco` — um salto de rede a mais sem nada
+em troca.
 
-**Vale registrar que os ganhos citados também não se aplicam a este app:**
+**O gatilho que estava registrado:** *"se o app mobile for descartado e a API
+passar a servir só este frontend, o Next fullstack entrega o mesmo produto com
+aproximadamente metade da superfície de manutenção."*
 
-- *Progressive enhancement* — os formulários vivem em bottom sheets abertos por
-  um FAB, controlados por estado React. Sem JS não existe sheet. Um formulário
-  que funciona sem JS dentro de um contêiner que exige JS é ganho zero.
-- *`revalidatePath` / RSC streaming* — pressupõem navegação e conteúdo
-  renderizado no servidor. Aqui é rota única, tudo `"use client"` (3.2).
-- *Round-trip + revalidate* — vai contra o padrão otimista com desfazer que já
-  é a espinha da UX (3.5).
-- *Offline* — Server Action exige rede sempre. PWA offline está no roadmap, e
-  para uso em studio com sinal ruim isso é requisito de produto, não detalhe.
+**O que aconteceu:** o app nativo deixou de ser certo, e a prioridade virou
+publicar rápido. A recusa caiu junto com sua premissa.
 
-**O que faria reconsiderar:** se o app mobile for descartado e a API passar a
-servir só este frontend. Aí o Next fullstack entrega o mesmo produto com
-aproximadamente metade da superfície de manutenção, e Server Actions passam a
-ser a escolha natural.
+**Três ressalvas da recusa continuam valendo,** e explicam escolhas de 6.1:
+
+- *Progressive enhancement* segue sendo ganho zero — os formulários vivem em
+  bottom sheets abertos por um FAB; sem JS não existe sheet.
+- *Round-trip vs. otimista* — por isso a etapa 3 espera a resposta em vez de
+  atualizar otimisticamente: é simples e 100–200ms não se notam aqui.
+- *Offline* — Server Action exige rede. O item de PWA offline em 6.4 continua
+  aberto e agora depende de service worker, não de `localStorage`.
 
 **Nota:** RHF e Server Actions coexistem bem (`handleSubmit` chama a action),
-então essa decisão não bloqueia nem obriga nada no lado de formulários.
+então nada muda no lado de formulários.
 
 ---
 
