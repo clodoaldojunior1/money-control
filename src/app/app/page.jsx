@@ -1,7 +1,15 @@
-"use client";
+import { AppRoot } from "../../components/lash-studio/AppRoot";
+import { carregarDadosIniciais } from "../../server/leitura";
 
-import { AppShell } from "../../components/lash-studio/AppShell";
+/**
+ * O banco é a fonte da verdade, então esta rota não pode ser pré-renderizada
+ * no build: o HTML congelaria os dados do dia da compilação — e o build
+ * passaria a exigir acesso ao banco. Renderiza a cada requisição.
+ */
+export const dynamic = "force-dynamic";
 
-export default function AppPage() {
-  return <AppShell />;
+export default async function AppPage() {
+  const dadosIniciais = await carregarDadosIniciais();
+
+  return <AppRoot dadosIniciais={dadosIniciais} />;
 }

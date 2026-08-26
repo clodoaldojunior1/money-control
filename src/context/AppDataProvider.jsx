@@ -1,13 +1,15 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { BRL, CAT_POR_SUB, gerarSeed } from "../data/dominio";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { BRL, CAT_POR_SUB } from "../data/dominio";
 import { diaCurto, noPeriodo, periodoAnterior, periodoDe, periodoSeguinte } from "../lib/periodo";
-import { lerDados, salvarDados } from "../lib/armazenamento";
 
 const AppDataContext = createContext(null);
 
-const byHour = (x, y) => x.hour.localeCompare(y.hour);
+// Ordem total (armadilha 4.3): agendamentos de dias diferentes convivem na
+// mesma lista, então comparar só a hora deixaria empates em ordem indefinida.
+const porDataEHora = (x, y) =>
+  (x.date === y.date ? x.hour.localeCompare(y.hour) : x.date.localeCompare(y.date));
 
 // Qual sheet o FAB abre em cada aba. Na Home o padrão é registrar entrada —
 // é a ação mais frequente de quem acabou de atender uma cliente.
@@ -20,18 +22,21 @@ const SHEET_POR_ABA = {
 };
 
 /**
- * `hoje` chega como prop já resolvida no cliente (ver `useHoje` e o layout de
- * /app). O provider só é montado depois disso, então os inicializadores de
- * estado abaixo podem semear os dados direto — sem efeito, sem estado nulo.
+ * Estado de domínio do app.
+ *
+ * `dadosIniciais` vem do servidor, já no formato da UI (`src/server/leitura.js`);
+ * `hoje` vem do cliente, resolvido antes da montagem (ver `AppRoot`). O
+ * provider só é montado com os dois em mãos, então os estados abaixo começam
+ * prontos — sem efeito e sem estado intermediário nulo.
+ *
+ * O banco é a fonte da verdade: não há mais cópia local dos dados. Enquanto a
+ * etapa 3 (escrita por Server Actions) não chega, as alterações vivem só neste
+ * estado e se desfazem ao recarregar.
  */
-export function AppDataProvider({ children, hoje }) {
-  // Dados salvos têm precedência sobre o seed. `lerDados()` devolve null só
-  // quando não há nada aproveitável — um conjunto vazio (a usuária apagou
-  // tudo) volta como arrays vazios e é respeitado.
-  const [inicial] = useState(() => lerDados() ?? gerarSeed(hoje));
-  const [items, setItems] = useState(inicial.items);
-  const [materiais, setMateriais] = useState(inicial.materiais);
-  const [agenda, setAgenda] = useState(inicial.agenda);
+export function AppDataProvider({ children, hoje, dadosIniciais }) {
+  const [items, setItems] = useState(dadosIniciais.items);
+  const [materiais, setMateriais] = useState(dadosIniciais.materiais);
+  const [agendamentos, setAgendamentos] = useState(dadosIniciais.agendamentos);
 
   const [periodo, setPeriodo] = useState(() => periodoDe(hoje));
 
@@ -58,17 +63,6 @@ export function AppDataProvider({ children, hoje }) {
     if (snack?.undo) snack.undo();
     setSnack(null);
   }, [snack]);
-
-  // Sonda de escrita, feita uma vez: se a primeira gravação falha (aba
-  // privada, cota estourada), ela vai falhar a sessão inteira. Guardar o
-  // resultado como constante deixa o aviso ser renderizado de forma
-  // declarativa, sem precisar de setState dentro de efeito.
-  const [podeSalvar] = useState(() => salvarDados(inicial));
-
-  // Uso canônico de efeito: sincronizar com um sistema externo.
-  useEffect(() => {
-    salvarDados({ items, materiais, agenda });
-  }, [items, materiais, agenda]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
@@ -140,23 +134,23 @@ export function AppDataProvider({ children, hoje }) {
 
     if (editing) {
       const prev = editing;
-      setAgenda((cur) => cur.map((a) => (a.id === prev.id ? { ...a, ...patch } : a)).sort(byHour));
+      setAgendamentos((cur) => cur.map((a) => (a.id === prev.id ? { ...a, ...patch } : a)).sort(porDataEHora));
       closeSheet();
-      toast("Agendamento atualizado", () => setAgenda((cur) => cur.map((a) => (a.id === prev.id ? prev : a)).sort(byHour)));
+      toast("Agendamento atualizado", () => setAgendamentos((cur) => cur.map((a) => (a.id === prev.id ? prev : a)).sort(porDataEHora)));
       return;
     }
     const ag = { id: `a${Date.now()}`, ...patch };
-    setAgenda((cur) => [...cur, ag].sort(byHour));
+    setAgendamentos((cur) => [...cur, ag].sort(porDataEHora));
     closeSheet();
-    toast(`${patch.name} agendada às ${patch.hour}`, () => setAgenda((cur) => cur.filter((a) => a.id !== ag.id)));
+    toast(`${patch.name} agendada às ${patch.hour}`, () => setAgendamentos((cur) => cur.filter((a) => a.id !== ag.id)));
   }, [editing, closeSheet, toast]);
 
   const removeAgenda = useCallback(() => {
     const prev = editing;
     if (!prev) return;
-    setAgenda((cur) => cur.filter((a) => a.id !== prev.id));
+    setAgendamentos((cur) => cur.filter((a) => a.id !== prev.id));
     closeSheet();
-    toast("Agendamento cancelado", () => setAgenda((cur) => [...cur, prev].sort(byHour)));
+    toast("Agendamento cancelado", () => setAgendamentos((cur) => [...cur, prev].sort(porDataEHora)));
   }, [editing, closeSheet, toast]);
 
   // — entradas —
@@ -227,21 +221,6 @@ export function AppDataProvider({ children, hoje }) {
     }));
   }, [editing, materiais, closeSheet, toast]);
 
-  /** Volta aos dados de exemplo. Destrutivo, mas reversível pelo snackbar. */
-  const restaurarExemplo = useCallback(() => {
-    const anterior = { items, materiais, agenda };
-    const novo = gerarSeed(hoje);
-    setItems(novo.items);
-    setMateriais(novo.materiais);
-    setAgenda(novo.agenda);
-    setDrawerOpen(false);
-    toast("Dados de exemplo restaurados", () => {
-      setItems(anterior.items);
-      setMateriais(anterior.materiais);
-      setAgenda(anterior.agenda);
-    });
-  }, [items, materiais, agenda, hoje, toast]);
-
   const contextualSheet = SHEET_POR_ABA[tab] ?? "entrada";
 
   const openContextualSheet = useCallback(() => {
@@ -256,6 +235,18 @@ export function AppDataProvider({ children, hoje }) {
 
   // — agregados, todos com escopo no período selecionado —
   const soma = (lista) => lista.reduce((a, b) => a + b.value, 0);
+
+  /**
+   * A agenda é do dia, não do período.
+   *
+   * O filtro é novo: com o seed mockado só existiam agendamentos de hoje, e a
+   * lista inteira já era "o dia". Vindo do banco ela traz todos os dias, e sem
+   * o recorte a tela de hoje mostraria o histórico inteiro.
+   */
+  const agenda = useMemo(
+    () => agendamentos.filter((a) => a.date === hoje),
+    [agendamentos, hoje],
+  );
 
   /** Materiais projetados como gasto de trabalho/variável (ver 3.3). */
   const materiaisComoGasto = useMemo(() => materiais.map((m) => ({
@@ -301,7 +292,6 @@ export function AppDataProvider({ children, hoje }) {
     sheet, editing, isEdit: !!editing,
     drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
-    restaurarExemplo, podeSalvar,
     filtro, setFiltro,
     snack, undo,
 
@@ -315,7 +305,6 @@ export function AppDataProvider({ children, hoje }) {
     items, materiais, agenda, ledgerOut, entradas, totals, faturamentoAnterior,
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
-    restaurarExemplo, podeSalvar,
     filtro, snack, undo,
     openGasto, saveGasto, removeGasto,
     openAgenda, saveAgenda, removeAgenda,

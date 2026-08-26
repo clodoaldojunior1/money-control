@@ -23,7 +23,6 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
@@ -100,7 +99,6 @@ export function AppShell() {
   const {
     tab, setTab, sheet, closeSheet, drawerOpen, openDrawer, closeDrawer,
     openContextualSheet, contextualSheet, snack, undo, hoje,
-    restaurarExemplo, podeSalvar,
   } = useAppData();
 
   const TabComponent = TAB_COMPONENTS[tab] ?? HomeTab;
@@ -146,24 +144,6 @@ export function AppShell() {
         {/* Content */}
         {/* A página rola no documento; nav e FAB são fixos, então o padding
             inferior reserva o espaço deles. */}
-        {/* Aviso fixo, não toast: a condição não passa enquanto a aba estiver
-            aberta, então some-lo depois de 4s esconderia perda de dados. */}
-        {!podeSalvar && (
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              alignItems: "center", mx: 2.75, mb: 1.5, p: "9px 12px",
-              borderRadius: `${custom.radius.md}px`,
-              backgroundColor: alpha(t.danger, alphas.tint),
-              color: t.danger, fontSize: 12, fontWeight: 600,
-            }}
-          >
-            <WarningAmberRoundedIcon sx={{ fontSize: 17 }} />
-            <span>Este navegador não permite salvar — os dados se perdem ao fechar.</span>
-          </Stack>
-        )}
-
         <Box sx={{ flex: 1, px: 2.75, pb: 20 }}>
           <TabComponent />
         </Box>
@@ -269,12 +249,17 @@ export function AppShell() {
               >
                 {isDark ? "Tema claro" : "Tema escuro"}
               </Button>
+              {/* Desabilitado desde que o banco virou a fonte da verdade:
+                  restaurar no cliente criaria divergência com o servidor.
+                  Volta na etapa 3, como Server Action. Hoje quem restaura é
+                  `yarn db:seed`. */}
               <Button
-                onClick={restaurarExemplo}
+                disabled
                 startIcon={<RestartAltRoundedIcon sx={{ fontSize: 19 }} />}
                 sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.text }}
               >
-                Restaurar dados de exemplo
+                <Box component="span" sx={{ flex: 1, textAlign: "left" }}>Restaurar dados de exemplo</Box>
+                <Chip label="Em breve" size="small" sx={{ height: 18, fontSize: 10, backgroundColor: t.neutral[100], color: t.neutral[800] }} />
               </Button>
               <Button
                 onClick={closeDrawer}
