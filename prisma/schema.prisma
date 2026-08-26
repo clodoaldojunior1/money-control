@@ -1,0 +1,100 @@
+// Schema do Lash Studio.
+//
+// Três regras que valem para todos os modelos:
+//
+// 1. **Dinheiro é `Decimal(10,2)`, nunca `Float`.** Ponto flutuante erra
+//    centavos ao somar, e isto é registro financeiro.
+// 2. **Datas são `@db.Date`, sem hora.** Guardar timestamp reintroduziria o
+//    problema de fuso que `src/lib/periodo.js` resolveu.
+// 3. **Campo derivado não é coluna.** O rótulo curto (`date`) sai de
+//    `diaCurto(iso)` e a categoria do gasto (`cat`) sai de `CAT_POR_SUB[sub]`,
+//    ambos já no código.
+
+// Usamos o generator legado `prisma-client-js`, e não o `prisma-client` novo,
+// porque este projeto é JavaScript: o generator novo emite TypeScript, e pedir
+// outra extensão só renomeia o arquivo — o conteúdo continua TS e o Node
+// quebra ao importar. O legado emite JS de verdade em node_modules/.prisma,
+// consumido por `@prisma/client`, o que serve tanto ao Next quanto ao seed em
+// Node puro.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  nome      String
+  studio    String?
+  whatsapp  String?
+  senhaHash String
+  criadoEm  DateTime @default(now())
+
+  entradas     Entrada[]
+  gastos       Gasto[]
+  materiais    Material[]
+  agendamentos Agendamento[]
+}
+
+model Entrada {
+  id      String   @id @default(cuid())
+  userId  String
+  cliente String
+  servico String
+  metodo  String
+  data    DateTime @db.Date
+  valor   Decimal  @db.Decimal(10, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // O app sempre consulta "os registros deste usuário neste mês".
+  @@index([userId, data])
+}
+
+model Gasto {
+  id      String   @id @default(cuid())
+  userId  String
+  titulo  String
+  tipo    String // trabalho | pessoal
+  subtipo String // fixo | variavel | superfluo | necessario
+  data    DateTime @db.Date
+  valor   Decimal  @db.Decimal(10, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, data])
+}
+
+model Material {
+  id         String   @id @default(cuid())
+  userId     String
+  nome       String
+  quantidade Int
+  unidade    String
+  custo      Decimal  @db.Decimal(10, 2)
+  minimo     Int
+  compradoEm DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, compradoEm])
+}
+
+model Agendamento {
+  id      String   @id @default(cuid())
+  userId  String
+  cliente String
+  servico String
+  data    DateTime @db.Date
+  hora    String // "09:00"
+  duracao String // "2h30"
+  status  String // Confirmado | Aguardando sinal | Concluído | Em atendimento
+  valor   Decimal  @db.Decimal(10, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, data])
+}
