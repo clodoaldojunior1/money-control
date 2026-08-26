@@ -1,13 +1,11 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { BRL, gerarSeed } from "../data/seed";
+import { BRL, CAT_POR_SUB, gerarSeed } from "../data/dominio";
 import { diaCurto, noPeriodo, periodoAnterior, periodoDe, periodoSeguinte } from "../lib/periodo";
 import { lerDados, salvarDados } from "../lib/armazenamento";
 
 const AppDataContext = createContext(null);
-
-const CAT_POR_SUB = { fixo: "Fixo", variavel: "Material", superfluo: "Supérfluo", necessario: "Necessário" };
 
 const byHour = (x, y) => x.hour.localeCompare(y.hour);
 

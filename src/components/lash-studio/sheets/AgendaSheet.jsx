@@ -7,7 +7,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
-import { SERVICES, DURATIONS, STATUSES } from "../../../data/seed";
+import { SERVICES, DURATIONS, STATUSES } from "../../../data/dominio";
 import { SheetFrame } from "../ui/SheetFrame";
 import { FormTextField } from "../ui/form/FormTextField";
 import { FormSelectField } from "../ui/form/FormSelectField";

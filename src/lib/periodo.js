@@ -27,6 +27,18 @@ export function isoDeData(data) {
   return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}`;
 }
 
+/**
+ * `Date` vindo de uma coluna `@db.Date` → "2026-08-01".
+ *
+ * Prisma devolve colunas de data como **meia-noite UTC** — medido contra um
+ * registro de dia conhecido. Ler isso com os getters locais devolve o dia
+ * anterior em qualquer fuso a oeste de Greenwich: é a regra 1 deste arquivo
+ * pelo avesso. Por isso a leitura do banco usa esta função, e não `isoDeData`.
+ */
+export function isoDeDataUTC(data) {
+  return `${data.getUTCFullYear()}-${pad(data.getUTCMonth() + 1)}-${pad(data.getUTCDate())}`;
+}
+
 /** Dia de hoje. Só chame no cliente. */
 export function hojeISO() {
   return isoDeData(new Date());
