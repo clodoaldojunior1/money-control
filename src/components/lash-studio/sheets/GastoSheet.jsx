@@ -31,9 +31,8 @@ const SUB_OPTIONS = {
 
 const SUB_PADRAO = { trabalho: "variavel", pessoal: "necessario" };
 
-// Em edição a data é a **do registro**, não a de hoje. O campo passou a ser
-// gravado (etapa 3): mostrar hoje faria toda edição mudar a data sem ninguém
-// pedir — e com o mock isso passava despercebido, porque a data era ignorada.
+// Em edição a data é a **do registro** (`iso`), não a de hoje: o campo é
+// gravado, e mostrar hoje faria toda edição mudar a data sem ninguém pedir.
 const toDefaults = (gasto, hoje) => (gasto
   ? { valor: String(gasto.value), desc: gasto.title, tipo: gasto.tipo, sub: gasto.sub, data: gasto.iso }
   : { valor: "", desc: "", tipo: "trabalho", sub: "variavel", data: hoje });
@@ -41,7 +40,7 @@ const toDefaults = (gasto, hoje) => (gasto
 export function GastoSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveGasto, removeGasto, closeSheet, hoje } = useAppData();
+  const { editing, isEdit, saveGasto, removeGasto, closeSheet, hoje, salvando } = useAppData();
 
   const { control, handleSubmit, setValue } = useForm({
     defaultValues: toDefaults(editing, hoje),
@@ -95,14 +94,17 @@ export function GastoSheet() {
             variant="outlined"
             color="error"
             onClick={removeGasto}
+            disabled={salvando}
             aria-label="Excluir gasto"
             sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
           >
             <DeleteOutlineRoundedIcon />
           </Button>
         )}
-        <Button variant="outlined" onClick={closeSheet} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSubmit(saveGasto)} sx={{ flex: 2 }}>Salvar gasto</Button>
+        <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
+        <Button variant="contained" onClick={handleSubmit(saveGasto)} disabled={salvando} sx={{ flex: 2 }}>
+          {salvando ? "Salvando…" : "Salvar gasto"}
+        </Button>
       </Stack>
     </SheetFrame>
   );

@@ -19,9 +19,8 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ value: u, label: u }));
 
 const positivo = (msg) => (v) => parseFloat(v) > 0 || msg;
 
-// Em edição a data é a **do registro**, não a de hoje. O campo passou a ser
-// gravado (etapa 3): mostrar hoje faria toda edição mudar a data sem ninguém
-// pedir — e com o mock isso passava despercebido, porque a data era ignorada.
+// Em edição a data é a **do registro**, não a de hoje: o campo é gravado, e
+// mostrar hoje faria toda edição mudar a data sem ninguém pedir.
 const toDefaults = (material, hoje) => (material
   ? { name: material.name, qty: String(material.qty), unit: material.unit, cost: String(material.cost), min: String(material.min), date: material.iso }
   : { name: "", qty: "1", unit: "un", cost: "", min: "1", date: hoje });
@@ -29,7 +28,7 @@ const toDefaults = (material, hoje) => (material
 export function MaterialSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveMaterial, removeMaterial, closeSheet, hoje } = useAppData();
+  const { editing, isEdit, saveMaterial, removeMaterial, closeSheet, hoje, salvando } = useAppData();
 
   const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
@@ -94,14 +93,17 @@ export function MaterialSheet() {
             variant="outlined"
             color="error"
             onClick={removeMaterial}
+            disabled={salvando}
             aria-label="Excluir material"
             sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
           >
             <DeleteOutlineRoundedIcon />
           </Button>
         )}
-        <Button variant="outlined" onClick={closeSheet} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSubmit(saveMaterial)} sx={{ flex: 2 }}>Salvar material</Button>
+        <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
+        <Button variant="contained" onClick={handleSubmit(saveMaterial)} disabled={salvando} sx={{ flex: 2 }}>
+          {salvando ? "Salvando…" : "Salvar material"}
+        </Button>
       </Stack>
     </SheetFrame>
   );

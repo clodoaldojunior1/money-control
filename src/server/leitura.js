@@ -90,7 +90,7 @@ const deAgendamento = (a) => ({
  * A ordem da agenda vem do banco porque a UI a renderiza na ordem do array;
  * as demais listas são reordenadas nas abas.
  */
-export async function carregarDadosIniciais() {
+export async function carregarDados() {
   const usuario = await usuarioAtual();
   const doDono = { where: { userId: usuario.id } };
 

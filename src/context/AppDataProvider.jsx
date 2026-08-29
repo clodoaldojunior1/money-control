@@ -1,15 +1,38 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { BRL, CAT_POR_SUB } from "../data/dominio";
-import { diaCurto, noPeriodo, periodoAnterior, periodoDe, periodoSeguinte } from "../lib/periodo";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, useTransition } from "react";
+import { BRL } from "../data/dominio";
+import { noPeriodo, periodoAnterior, periodoDe, periodoSeguinte } from "../lib/periodo";
+import { criarEntrada, atualizarEntrada, excluirEntrada } from "../actions/entradas";
+import { criarGasto, atualizarGasto, excluirGasto } from "../actions/gastos";
+import { criarMaterial, atualizarMaterial, excluirMaterial } from "../actions/materiais";
+import { criarAgendamento, atualizarAgendamento, excluirAgendamento } from "../actions/agenda";
+import { restaurarExemplo as restaurarExemploNoBanco, substituirDados } from "../actions/conta";
 
 const AppDataContext = createContext(null);
 
-// Ordem total (armadilha 4.3): agendamentos de dias diferentes convivem na
-// mesma lista, então comparar só a hora deixaria empates em ordem indefinida.
-const porDataEHora = (x, y) =>
-  (x.date === y.date ? x.hour.localeCompare(y.hour) : x.date.localeCompare(y.date));
+/**
+ * Tradutores entre as três formas que um registro assume: a do formulário, a
+ * da tela e a das ações.
+ *
+ * `de*Formulario` prepara o que a usuária acabou de digitar; `de*Registro`
+ * remonta os mesmos campos a partir do que está na tela, e existe para o
+ * desfazer — voltar uma edição é regravar o registro anterior, e recriar um
+ * excluído é gravá-lo de novo com o mesmo id.
+ */
+const entradaDeFormulario = (v) => ({ cliente: v.client, servico: v.service, metodo: v.method, data: v.date, valor: v.value });
+const entradaDeRegistro = (e) => ({ cliente: e.client, servico: e.service, metodo: e.method, data: e.iso, valor: e.value });
+
+const gastoDeFormulario = (v) => ({ titulo: v.desc, tipo: v.tipo, subtipo: v.sub, data: v.data, valor: v.valor });
+const gastoDeRegistro = (g) => ({ titulo: g.title, tipo: g.tipo, subtipo: g.sub, data: g.iso, valor: g.value });
+
+const materialDeFormulario = (v) => ({ nome: v.name, quantidade: v.qty, unidade: v.unit, custo: v.cost, minimo: v.min, compradoEm: v.date });
+const materialDeRegistro = (m) => ({ nome: m.name, quantidade: m.qty, unidade: m.unit, custo: m.cost, minimo: m.min, compradoEm: m.iso });
+
+const agendamentoDeFormulario = (v) => ({ cliente: v.name, servico: v.service, data: v.date, hora: v.hour, duracao: v.dur, status: v.status, valor: v.value });
+const agendamentoDeRegistro = (a) => ({ cliente: a.name, servico: a.service, data: a.date, hora: a.hour, duracao: a.dur, status: a.status, valor: a.value });
+
+const comId = (registro, converter) => ({ id: registro.id, ...converter(registro) });
 
 // Qual sheet o FAB abre em cada aba. Na Home o padrão é registrar entrada —
 // é a ação mais frequente de quem acabou de atender uma cliente.
@@ -22,21 +45,22 @@ const SHEET_POR_ABA = {
 };
 
 /**
- * Estado de domínio do app.
+ * Estado do app. Os **dados** não estão aqui.
  *
- * `dadosIniciais` vem do servidor, já no formato da UI (`src/server/leitura.js`);
- * `hoje` vem do cliente, resolvido antes da montagem (ver `AppRoot`). O
- * provider só é montado com os dois em mãos, então os estados abaixo começam
- * prontos — sem efeito e sem estado intermediário nulo.
+ * `dados` chega do servidor a cada render (`src/server/leitura.js`) e é usado
+ * direto, sem `useState`. Isso não é detalhe de estilo: as ações terminam em
+ * `revalidatePath("/app")`, o servidor re-renderiza e manda a versão nova por
+ * prop — e um `useState` inicializado uma vez ignoraria tudo isso, deixando a
+ * tela parada num retrato antigo. Copiar para o estado traria de volta os dois
+ * donos que a etapa 2 acabou de eliminar.
  *
- * O banco é a fonte da verdade: não há mais cópia local dos dados. Enquanto a
- * etapa 3 (escrita por Server Actions) não chega, as alterações vivem só neste
- * estado e se desfazem ao recarregar.
+ * O que continua sendo estado é o que só o cliente sabe: aba, sheet aberto,
+ * período, filtro, snackbar.
+ *
+ * `hoje` vem do cliente, resolvido antes da montagem (ver `AppRoot`).
  */
-export function AppDataProvider({ children, hoje, dadosIniciais }) {
-  const [items, setItems] = useState(dadosIniciais.items);
-  const [materiais, setMateriais] = useState(dadosIniciais.materiais);
-  const [agendamentos, setAgendamentos] = useState(dadosIniciais.agendamentos);
+export function AppDataProvider({ children, hoje, dados }) {
+  const { items, materiais, agendamentos } = dados;
 
   const [periodo, setPeriodo] = useState(() => periodoDe(hoje));
 
@@ -51,6 +75,8 @@ export function AppDataProvider({ children, hoje, dadosIniciais }) {
   const [sheet, setSheet] = useState(null);
   const [editing, setEditing] = useState(null);
 
+  const [salvando, iniciarTransicao] = useTransition();
+
   const money = useCallback((n) => BRL(n), []);
 
   const toast = useCallback((text, undo) => {
@@ -63,6 +89,28 @@ export function AppDataProvider({ children, hoje, dadosIniciais }) {
     if (snack?.undo) snack.undo();
     setSnack(null);
   }, [snack]);
+
+  /**
+   * Executa uma ação do servidor e trata o resultado.
+   *
+   * A transição é o que mantém `salvando` verdadeiro **até a tela já ter os
+   * dados novos** — ela cobre a ida ao banco e a re-renderização que o
+   * `revalidatePath` provoca. Fechar o sheet antes disso mostraria por um
+   * instante a lista sem o registro recém-salvo.
+   *
+   * Decisão registrada em 6.1: esperar a resposta em vez de atualizar
+   * otimisticamente. São 100–200ms, e evita reconciliar ids temporários.
+   */
+  const executar = useCallback((acao, aoConcluir) => {
+    iniciarTransicao(async () => {
+      const resultado = await acao();
+      if (resultado?.erro) {
+        toast(resultado.erro);
+        return;
+      }
+      aoConcluir?.(resultado);
+    });
+  }, [toast]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
@@ -85,141 +133,131 @@ export function AppDataProvider({ children, hoje, dadosIniciais }) {
 
   // — gastos —
   const saveGasto = useCallback((values) => {
-    const value = parseFloat(values.valor);
-    const patch = {
-      tipo: values.tipo,
-      sub: values.sub,
-      title: values.desc.trim() || "Gasto sem descrição",
-      cat: CAT_POR_SUB[values.sub],
-      value,
-    };
-
     if (editing) {
-      const prev = editing;
-      setItems((cur) => cur.map((i) => (i.id === prev.id ? { ...i, ...patch } : i)));
-      closeSheet();
-      toast("Gasto atualizado", () => setItems((cur) => cur.map((i) => (i.id === prev.id ? prev : i))));
+      const anterior = editing;
+      executar(() => atualizarGasto(anterior.id, gastoDeFormulario(values)), () => {
+        closeSheet();
+        toast("Gasto atualizado", () =>
+          executar(() => atualizarGasto(anterior.id, gastoDeRegistro(anterior))));
+      });
       return;
     }
-    const item = { id: `g${Date.now()}`, kind: "out", iso: values.data, date: diaCurto(values.data), ...patch };
-    setItems((cur) => [item, ...cur]);
-    closeSheet();
-    toast(`Gasto de ${BRL(value)} salvo`, () => setItems((cur) => cur.filter((i) => i.id !== item.id)));
-  }, [editing, closeSheet, toast]);
+    executar(() => criarGasto(gastoDeFormulario(values)), ({ id }) => {
+      closeSheet();
+      toast(`Gasto de ${BRL(Number(values.valor))} salvo`, () => executar(() => excluirGasto(id)));
+    });
+  }, [editing, closeSheet, toast, executar]);
 
   const removeGasto = useCallback(() => {
-    const prev = editing;
-    if (!prev) return;
-    const idx = items.findIndex((i) => i.id === prev.id);
-    setItems((cur) => cur.filter((i) => i.id !== prev.id));
-    closeSheet();
-    toast("Gasto excluído", () => setItems((cur) => {
-      const arr = cur.slice();
-      arr.splice(idx, 0, prev);
-      return arr;
-    }));
-  }, [editing, items, closeSheet, toast]);
+    const anterior = editing;
+    if (!anterior) return;
+    executar(() => excluirGasto(anterior.id), () => {
+      closeSheet();
+      // Recria com o mesmo id: o registro que volta é o mesmo, não um sósia.
+      toast("Gasto excluído", () => executar(() => criarGasto(comId(anterior, gastoDeRegistro))));
+    });
+  }, [editing, closeSheet, toast, executar]);
 
   // — agenda —
   const saveAgenda = useCallback((values) => {
-    const patch = {
-      name: values.name.trim(),
-      service: values.service,
-      date: values.date,
-      hour: values.hour,
-      dur: values.dur,
-      status: values.status,
-      value: parseFloat(values.value) || 0,
-    };
-
     if (editing) {
-      const prev = editing;
-      setAgendamentos((cur) => cur.map((a) => (a.id === prev.id ? { ...a, ...patch } : a)).sort(porDataEHora));
-      closeSheet();
-      toast("Agendamento atualizado", () => setAgendamentos((cur) => cur.map((a) => (a.id === prev.id ? prev : a)).sort(porDataEHora)));
+      const anterior = editing;
+      executar(() => atualizarAgendamento(anterior.id, agendamentoDeFormulario(values)), () => {
+        closeSheet();
+        toast("Agendamento atualizado", () =>
+          executar(() => atualizarAgendamento(anterior.id, agendamentoDeRegistro(anterior))));
+      });
       return;
     }
-    const ag = { id: `a${Date.now()}`, ...patch };
-    setAgendamentos((cur) => [...cur, ag].sort(porDataEHora));
-    closeSheet();
-    toast(`${patch.name} agendada às ${patch.hour}`, () => setAgendamentos((cur) => cur.filter((a) => a.id !== ag.id)));
-  }, [editing, closeSheet, toast]);
+    executar(() => criarAgendamento(agendamentoDeFormulario(values)), ({ id }) => {
+      closeSheet();
+      toast(`${values.name.trim()} agendada às ${values.hour}`, () =>
+        executar(() => excluirAgendamento(id)));
+    });
+  }, [editing, closeSheet, toast, executar]);
 
   const removeAgenda = useCallback(() => {
-    const prev = editing;
-    if (!prev) return;
-    setAgendamentos((cur) => cur.filter((a) => a.id !== prev.id));
-    closeSheet();
-    toast("Agendamento cancelado", () => setAgendamentos((cur) => [...cur, prev].sort(porDataEHora)));
-  }, [editing, closeSheet, toast]);
+    const anterior = editing;
+    if (!anterior) return;
+    executar(() => excluirAgendamento(anterior.id), () => {
+      closeSheet();
+      toast("Agendamento cancelado", () =>
+        executar(() => criarAgendamento(comId(anterior, agendamentoDeRegistro))));
+    });
+  }, [editing, closeSheet, toast, executar]);
 
   // — entradas —
   const saveEntrada = useCallback((values) => {
-    const value = parseFloat(values.value);
-    const patch = { client: values.client.trim(), service: values.service, method: values.method, value };
-
     if (editing) {
-      const prev = editing;
-      setItems((cur) => cur.map((i) => (i.id === prev.id ? { ...i, ...patch } : i)));
-      closeSheet();
-      toast("Entrada atualizada", () => setItems((cur) => cur.map((i) => (i.id === prev.id ? prev : i))));
+      const anterior = editing;
+      executar(() => atualizarEntrada(anterior.id, entradaDeFormulario(values)), () => {
+        closeSheet();
+        toast("Entrada atualizada", () =>
+          executar(() => atualizarEntrada(anterior.id, entradaDeRegistro(anterior))));
+      });
       return;
     }
-    const it = { id: `e${Date.now()}`, kind: "in", iso: values.date, date: diaCurto(values.date), ...patch };
-    setItems((cur) => [it, ...cur]);
-    closeSheet();
-    toast(`Entrada de ${BRL(value)} registrada`, () => setItems((cur) => cur.filter((i) => i.id !== it.id)));
-  }, [editing, closeSheet, toast]);
+    executar(() => criarEntrada(entradaDeFormulario(values)), ({ id }) => {
+      closeSheet();
+      toast(`Entrada de ${BRL(Number(values.value))} registrada`, () =>
+        executar(() => excluirEntrada(id)));
+    });
+  }, [editing, closeSheet, toast, executar]);
 
   const removeEntrada = useCallback(() => {
-    const prev = editing;
-    if (!prev) return;
-    const idx = items.findIndex((i) => i.id === prev.id);
-    setItems((cur) => cur.filter((i) => i.id !== prev.id));
-    closeSheet();
-    toast("Entrada excluída", () => setItems((cur) => {
-      const arr = cur.slice();
-      arr.splice(idx, 0, prev);
-      return arr;
-    }));
-  }, [editing, items, closeSheet, toast]);
+    const anterior = editing;
+    if (!anterior) return;
+    executar(() => excluirEntrada(anterior.id), () => {
+      closeSheet();
+      toast("Entrada excluída", () =>
+        executar(() => criarEntrada(comId(anterior, entradaDeRegistro))));
+    });
+  }, [editing, closeSheet, toast, executar]);
 
   // — materiais —
   const saveMaterial = useCallback((values) => {
-    const cost = parseFloat(values.cost);
-    const patch = {
-      name: values.name.trim(),
-      qty: parseFloat(values.qty),
-      unit: values.unit,
-      cost,
-      min: parseFloat(values.min) || 0,
-    };
-
     if (editing) {
-      const prev = editing;
-      setMateriais((cur) => cur.map((m) => (m.id === prev.id ? { ...m, ...patch } : m)));
-      closeSheet();
-      toast("Material atualizado", () => setMateriais((cur) => cur.map((m) => (m.id === prev.id ? prev : m))));
+      const anterior = editing;
+      executar(() => atualizarMaterial(anterior.id, materialDeFormulario(values)), () => {
+        closeSheet();
+        toast("Material atualizado", () =>
+          executar(() => atualizarMaterial(anterior.id, materialDeRegistro(anterior))));
+      });
       return;
     }
-    const mat = { id: `m${Date.now()}`, iso: values.date, date: diaCurto(values.date), ...patch };
-    setMateriais((cur) => [mat, ...cur]);
-    closeSheet();
-    toast(`Material lançado nos gastos: ${BRL(cost)}`, () => setMateriais((cur) => cur.filter((m) => m.id !== mat.id)));
-  }, [editing, closeSheet, toast]);
+    executar(() => criarMaterial(materialDeFormulario(values)), ({ id }) => {
+      closeSheet();
+      toast(`Material lançado nos gastos: ${BRL(Number(values.cost))}`, () =>
+        executar(() => excluirMaterial(id)));
+    });
+  }, [editing, closeSheet, toast, executar]);
 
   const removeMaterial = useCallback(() => {
-    const prev = editing;
-    if (!prev) return;
-    const idx = materiais.findIndex((m) => m.id === prev.id);
-    setMateriais((cur) => cur.filter((m) => m.id !== prev.id));
-    closeSheet();
-    toast("Material excluído", () => setMateriais((cur) => {
-      const arr = cur.slice();
-      arr.splice(idx, 0, prev);
-      return arr;
-    }));
-  }, [editing, materiais, closeSheet, toast]);
+    const anterior = editing;
+    if (!anterior) return;
+    executar(() => excluirMaterial(anterior.id), () => {
+      closeSheet();
+      toast("Material excluído", () =>
+        executar(() => criarMaterial(comId(anterior, materialDeRegistro))));
+    });
+  }, [editing, closeSheet, toast, executar]);
+
+  /**
+   * Volta aos dados de exemplo. Destrutivo, e o desfazer é o retrato que já
+   * está na tela — é o cliente que tem o "antes" (ver `src/actions/conta.js`).
+   */
+  const restaurarExemplo = useCallback(() => {
+    const retrato = {
+      entradas: items.filter((i) => i.kind === "in").map((e) => comId(e, entradaDeRegistro)),
+      gastos: items.filter((i) => i.kind === "out").map((g) => comId(g, gastoDeRegistro)),
+      materiais: materiais.map((m) => comId(m, materialDeRegistro)),
+      agendamentos: agendamentos.map((a) => comId(a, agendamentoDeRegistro)),
+    };
+    setDrawerOpen(false);
+    executar(() => restaurarExemploNoBanco(hoje), () => {
+      toast("Dados de exemplo restaurados", () => executar(() => substituirDados(retrato)));
+    });
+  }, [items, materiais, agendamentos, hoje, toast, executar]);
 
   const contextualSheet = SHEET_POR_ABA[tab] ?? "entrada";
 
@@ -292,6 +330,7 @@ export function AppDataProvider({ children, hoje, dadosIniciais }) {
     sheet, editing, isEdit: !!editing,
     drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
+    restaurarExemplo, salvando,
     filtro, setFiltro,
     snack, undo,
 
@@ -305,6 +344,7 @@ export function AppDataProvider({ children, hoje, dadosIniciais }) {
     items, materiais, agenda, ledgerOut, entradas, totals, faturamentoAnterior,
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
+    restaurarExemplo, salvando,
     filtro, snack, undo,
     openGasto, saveGasto, removeGasto,
     openAgenda, saveAgenda, removeAgenda,

@@ -16,9 +16,8 @@ import { FormSegmented } from "../ui/form/FormSegmented";
 
 const METHOD_OPTIONS = METHODS.map((m) => ({ value: m, label: m }));
 
-// Em edição a data é a **do registro**, não a de hoje. O campo passou a ser
-// gravado (etapa 3): mostrar hoje faria toda edição mudar a data sem ninguém
-// pedir — e com o mock isso passava despercebido, porque a data era ignorada.
+// Em edição a data é a **do registro**, não a de hoje: o campo é gravado, e
+// mostrar hoje faria toda edição mudar a data sem ninguém pedir.
 const toDefaults = (entrada, hoje) => (entrada
   ? { client: entrada.client, service: entrada.service, value: String(entrada.value), method: entrada.method, date: entrada.iso }
   : { client: "", service: "Volume russo", value: "", method: "Pix", date: hoje });
@@ -26,7 +25,7 @@ const toDefaults = (entrada, hoje) => (entrada
 export function EntradaSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveEntrada, removeEntrada, closeSheet, hoje } = useAppData();
+  const { editing, isEdit, saveEntrada, removeEntrada, closeSheet, hoje, salvando } = useAppData();
 
   const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
@@ -70,14 +69,17 @@ export function EntradaSheet() {
             variant="outlined"
             color="error"
             onClick={removeEntrada}
+            disabled={salvando}
             aria-label="Excluir entrada"
             sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
           >
             <DeleteOutlineRoundedIcon />
           </Button>
         )}
-        <Button variant="outlined" onClick={closeSheet} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSubmit(saveEntrada)} sx={{ flex: 2 }}>Salvar entrada</Button>
+        <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
+        <Button variant="contained" onClick={handleSubmit(saveEntrada)} disabled={salvando} sx={{ flex: 2 }}>
+          {salvando ? "Salvando…" : "Salvar entrada"}
+        </Button>
       </Stack>
     </SheetFrame>
   );

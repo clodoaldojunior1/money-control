@@ -99,6 +99,7 @@ export function AppShell() {
   const {
     tab, setTab, sheet, closeSheet, drawerOpen, openDrawer, closeDrawer,
     openContextualSheet, contextualSheet, snack, undo, hoje,
+    restaurarExemplo, salvando,
   } = useAppData();
 
   const TabComponent = TAB_COMPONENTS[tab] ?? HomeTab;
@@ -249,17 +250,17 @@ export function AppShell() {
               >
                 {isDark ? "Tema claro" : "Tema escuro"}
               </Button>
-              {/* Desabilitado desde que o banco virou a fonte da verdade:
-                  restaurar no cliente criaria divergência com o servidor.
-                  Volta na etapa 3, como Server Action. Hoje quem restaura é
-                  `yarn db:seed`. */}
+              {/* Apaga e regrava no banco. Sem diálogo de confirmação, como o
+                  resto do app: quem confirma é o desfazer do snackbar. */}
               <Button
-                disabled
+                onClick={restaurarExemplo}
+                disabled={salvando}
                 startIcon={<RestartAltRoundedIcon sx={{ fontSize: 19 }} />}
                 sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.text }}
               >
-                <Box component="span" sx={{ flex: 1, textAlign: "left" }}>Restaurar dados de exemplo</Box>
-                <Chip label="Em breve" size="small" sx={{ height: 18, fontSize: 10, backgroundColor: t.neutral[100], color: t.neutral[800] }} />
+                <Box component="span" sx={{ flex: 1, textAlign: "left" }}>
+                  {salvando ? "Restaurando…" : "Restaurar dados de exemplo"}
+                </Box>
               </Button>
               <Button
                 onClick={closeDrawer}

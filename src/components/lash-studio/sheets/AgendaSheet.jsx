@@ -25,7 +25,7 @@ const toDefaults = (ag, hoje) => (ag
 export function AgendaSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveAgenda, removeAgenda, closeSheet, hoje } = useAppData();
+  const { editing, isEdit, saveAgenda, removeAgenda, closeSheet, hoje, salvando } = useAppData();
 
   const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
@@ -72,14 +72,17 @@ export function AgendaSheet() {
             variant="outlined"
             color="error"
             onClick={removeAgenda}
+            disabled={salvando}
             aria-label="Cancelar agendamento"
             sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
           >
             <DeleteOutlineRoundedIcon />
           </Button>
         )}
-        <Button variant="outlined" onClick={closeSheet} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSubmit(saveAgenda)} sx={{ flex: 2 }}>Salvar agendamento</Button>
+        <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
+        <Button variant="contained" onClick={handleSubmit(saveAgenda)} disabled={salvando} sx={{ flex: 2 }}>
+          {salvando ? "Salvando…" : "Salvar agendamento"}
+        </Button>
       </Stack>
     </SheetFrame>
   );
