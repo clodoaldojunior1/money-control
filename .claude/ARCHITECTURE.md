@@ -59,7 +59,16 @@ src/
 │
 ├── server/                   só roda no servidor
 │   ├── usuario.js            o dono dos dados (vira requireUser na etapa 4)
-│   └── leitura.js            Prisma → formato da UI (borda de conversão)
+│   ├── leitura.js            Prisma → formato da UI (borda de conversão)
+│   ├── escrita.js            formulário → banco: validação e conversão
+│   └── exemplo.js            gerador dos dados de exemplo (seed + restaurar)
+│
+├── actions/                  Server Actions ("use server")
+│   ├── entradas.js           criar / atualizar / excluir, por entidade
+│   ├── gastos.js             (as três regras comuns estão comentadas aqui)
+│   ├── materiais.js
+│   ├── agenda.js
+│   └── conta.js              restaurar exemplo e o desfazer dele
 │
 ├── data/
 │   └── dominio.js            BRL + listas de domínio + CAT_POR_SUB
@@ -190,7 +199,8 @@ root — as telas públicas não carregam o estado de domínio.
   4 entidades
 - **Ações:** `open*` / `save*` / `remove*` por entidade, com toast e desfazer.
   Os `save*` **recebem os valores do formulário** como argumento; o provider
-  não guarda estado de formulário (ver 3.5)
+  não guarda estado de formulário (ver 3.5). Desde a etapa 3 elas chamam
+  Server Actions e expõem `salvando` (5.4, 5.5)
 
 **Materiais entram automaticamente em Gastos** (via `ledgerOut`), como
 Trabalho › Variável. Não existe registro duplicado — é projeção derivada.
@@ -384,10 +394,9 @@ quebra hidratação.
 
 ## 5. Dados
 
-O banco é a **fonte da verdade**. O app lê dele a cada requisição (5.1) e, até
-a etapa 3, as alterações vivem só no estado do provider — editar e recarregar
-desfaz. Não há mais cópia local: a camada de `localStorage` que existia foi
-removida (5.3).
+O banco é a **fonte da verdade**: o app lê dele a cada requisição (5.1) e
+grava por Server Actions (5.4). Não há cópia local nem no navegador (5.3) nem
+no estado do React (5.5) — o dado tem um dono só.
 
 ### 5.0 O banco (Neon + Prisma)
 
@@ -401,8 +410,9 @@ coluna, e as duas mudanças do Prisma 7 que ditaram o caminho (generator legado
 `prisma-client-js`, porque o novo emite TypeScript; e o driver adapter do Neon,
 porque o client não conecta mais pela URL).
 
-`prisma/seed.mjs` é autocontido e idempotente. Comandos: `db:migrate`,
-`db:seed`, `db:studio`, `db:generate`. Variáveis em `.env.example` — os valores
+`prisma/seed.mjs` é idempotente; a geração dos dados vive em
+`src/server/exemplo.js`, compartilhada com a ação de restaurar. Comandos:
+`db:migrate`, `db:seed`, `db:studio`, `db:generate`. Variáveis em `.env.example` — os valores
 reais ficam em `.env.local`, fora do git.
 
 ### 5.1 Leitura: a borda de conversão
@@ -471,6 +481,66 @@ foram embora o aviso fixo de "este navegador não permite salvar" e o
 cliente recriaria a divergência; hoje quem restaura é `yarn db:seed`, e o botão
 volta na etapa 3 como Server Action.
 
+### 5.4 Escrita: Server Actions
+
+`src/actions/*.js` — uma por entidade, três ações cada (criar, atualizar,
+excluir), mais `conta.js` para restaurar exemplo. Três regras valem para
+todas, comentadas por extenso em `gastos.js`:
+
+1. **Nunca `where: { id }` sozinho.** `updateMany`/`deleteMany` escopados por
+   `{ id, userId }` fazem o id de outra conta simplesmente não casar. Hoje há
+   uma conta só e isso é teórico; na etapa 4 deixa de ser, e custa uma linha.
+2. **`revalidatePath("/app")` no fim.** É por ele que a tela recebe o
+   resultado — ver 5.5.
+3. **`criar` aceita um `id`.** O desfazer de uma exclusão recria o registro
+   com a mesma identidade em vez de um sósia.
+
+`src/server/escrita.js` valida e converte, e existe por um motivo que
+`leitura.js` não tem: **Server Action é um endpoint**. O que chega ali
+atravessou a rede e não é confiável só porque o formulário do app validou
+antes.
+
+**O que é lista fechada e o que não é.** `tipo` e `subtipo` do gasto sim,
+porque a UI deriva rótulo e categoria deles e um valor fora da lista quebraria
+a tela. Serviço, duração e status não: o próprio seed grava "Em atendimento",
+que não está entre os `STATUSES` oferecidos, e fechar a lista impediria de
+editar registros que já existem.
+
+**Erro nunca sobe como exceção.** `comResultado` devolve `{ erro }` — texto
+para a usuária quando o dado é inválido, mensagem genérica com o stack no log
+do servidor quando é outra coisa. Uma ação que lança vira erro de runtime no
+cliente, e em produção a mensagem é apagada: a tela quebraria sem dizer por
+quê. No app, o erro vira toast **sem** botão de desfazer e o sheet **continua
+aberto**, com o que foi digitado.
+
+### 5.5 Por que o provider não guarda os dados
+
+As ações terminam em `revalidatePath("/app")`; o servidor re-renderiza e manda
+a versão nova por prop. Um `useState` inicializado uma vez ignoraria isso e
+deixaria a tela num retrato antigo — e copiar para o estado traria de volta os
+dois donos que 5.3 eliminou. Então o provider **lê `dados` da prop**, e o que
+continua sendo estado é só o que o cliente sabe sozinho: aba, sheet, período,
+filtro, snackbar.
+
+**Esperar, não ser otimista** (decisão de 6.1). As ações rodam dentro de uma
+`useTransition`, e é ela que mantém `salvando` verdadeiro até a tela **já ter
+os dados novos** — não só até o banco responder. Fechar o sheet antes disso
+mostraria por um instante a lista sem o registro recém-salvo. Enquanto isso o
+botão vira "Salvando…" e o sheet fica aberto: se falhar, nada do que foi
+digitado se perde.
+
+**Desfazer é a ação inversa.** Criar desfaz excluindo; excluir desfaz criando
+com o mesmo id; editar desfaz regravando os valores anteriores. Para isso o
+provider tem dois tradutores por entidade — `de*Formulario` prepara o que
+acabou de ser digitado, `de*Registro` remonta os mesmos campos a partir do que
+está na tela.
+
+**Restaurar exemplo** é o caso especial: apagar tudo não tem inverso barato, e
+quem tem o "antes" é o cliente, que já recebeu os dados. O desfazer manda esse
+retrato de volta (`substituirDados`). Apagar e regravar acontecem na mesma
+transação — é o único ponto do app onde uma falha no meio deixaria a conta
+vazia.
+
 ---
 
 ## 6. Planejamento futuro
@@ -505,7 +575,7 @@ viável.
 | 0 | Datas reais e noção de período (3.7) | ✅ feito |
 | 1 | Banco, schema e seed (5.0) | ✅ feito |
 | 2 | App **lê** do servidor (5.1, 5.2) | ✅ feito |
-| 3 | App **grava** por Server Actions | pendente |
+| 3 | App **grava** por Server Actions (5.4, 5.5) | ✅ feito |
 | 4 | Auth.js v5 (e-mail e senha) | pendente |
 | 5 | Deploy na Vercel | pendente |
 
@@ -517,11 +587,14 @@ provider. A conversão de tipos acontece numa borda só, e por isso **nenhum
 componente de UI mudou**. O detalhe está em 5.1 e 5.2; o `localStorage` saiu
 junto (5.3).
 
-**Etapa 3 — escrita.** `src/actions/*.js` com `"use server"`, cada ação
-passando por `requireUser()` e terminando em `revalidatePath("/app")`. As 12
-ações do provider viram `async`. Decisão deliberada: **esperar a resposta em
-vez de atualização otimista** — são 100–200ms, imperceptíveis aqui, e evitam
-reconciliar ids temporários. Desfazer chama a ação inversa preservando o `id`.
+**Etapa 3 — escrita. Feita.** `src/actions/*.js` com `"use server"`, cada ação
+escopada pelo dono e terminando em `revalidatePath("/app")`. A decisão de
+**esperar a resposta em vez de atualizar otimisticamente** se manteve, e o
+desfazer virou a ação inversa preservando o `id`. Duas coisas que só
+apareceram ao implementar: o provider precisou **parar de guardar os dados**
+(5.5), senão a tela ignoraria o `revalidatePath`; e "Restaurar dados de
+exemplo" precisou de uma ação inversa própria, porque apagar tudo não tem
+inverso barato. Detalhe em 5.4 e 5.5.
 
 **Etapa 4 — auth.** Armadilha conhecida: o middleware roda no runtime edge,
 onde bcrypt e Prisma não funcionam. A saída é a config dividida do Auth.js —
@@ -567,8 +640,10 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
   controle para alterná-lo
 - **PWA de fato** — manifest, service worker, instalação. Hoje é "mobile-first",
   não instalável
-- **Resolver de schema (zod/yup)** — hoje a validação usa regras nativas do
-  RHF; só vale trazer um resolver se surgirem regras entre campos
+- **Resolver de schema (zod/yup)** — segue em aberto de propósito: a etapa 3
+  validou no servidor à mão (5.4) para não misturar duas decisões num commit
+  só. A validação do formulário usa regras nativas do RHF; só vale trazer um
+  resolver se surgirem regras entre campos — e aí ele serviria aos dois lados
 - **Rotas reais por aba** — ver 3.2
 - **Testes** — não há nenhum ainda
 
@@ -632,6 +707,11 @@ Com o banco ligado, vale conferir **números** contra ele, e não só a tela: um
 conversão errada na borda (5.1) produz um app que parece certo com valores
 trocados. `yarn db:studio` mostra as tabelas.
 
+Agora que o app grava, o roteiro inclui **salvar, editar e excluir conferindo
+a linha no banco** — inclusive a data, que é onde o fuso morde (4.6). O
+desfazer de uma exclusão tem que devolver o **mesmo id**, não um registro
+parecido.
+
 Um detalhe do ambiente: o badge do Next.js dev tools fica no canto inferior
 esquerdo, **em cima da aba "Início"**. Cliques automatizados naquele ponto
 acertam o badge, não o app.
@@ -654,6 +734,15 @@ navegador, o risco deixa de ser o código e passa a ser **a medição**.
    nela. Um controle barato evita horas.
 4. **Reescreveu o mesmo arquivo duas vezes pelo mesmo sintoma sem resolver?**
    A hipótese está errada. Pare — não tente a terceira variação.
+5. **Elemento certo, instância errada.** Uma sonda que procura "o botão
+   Desfazer" acha o do snackbar **anterior**, que ainda não expirou, e
+   desfaz a ação errada — com tudo parecendo ter funcionado. Ao encadear
+   ações com desfazer, espere o snackbar sumir antes da próxima, ou identifique
+   o alvo pelo texto da mensagem, não pelo botão.
+6. **O log do servidor desempata.** Quando a tela não diz qual ação rodou, o
+   log do `next dev` lista as Server Actions com argumentos e duração — foi
+   ele que revelou o `criarEntrada → excluirEntrada → restaurarExemplo` que
+   denunciou a regra 5.
 
 **O caso que gerou estas regras.** O medidor de força de senha
 (`PasswordStrength`) parecia não atualizar as barras: o rótulo dizia

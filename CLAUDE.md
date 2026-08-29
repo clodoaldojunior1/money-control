@@ -31,8 +31,13 @@ estrutura.**
   **única** borda de conversão (Decimal → Number, Date → `"YYYY-MM-DD"`,
   derivados) — é por isso que ligar o banco não mudou nenhum componente.
   Não existe mais `localStorage`
-- **Escrita ainda não persiste.** Salvar/excluir mexe só no estado do provider
-  e some ao recarregar — é a etapa 3
+- **Escrita: Server Actions** em `src/actions/`. Cada ação é escopada por
+  `{ id, userId }` (nunca só o id), valida no servidor — endpoint não confia
+  no formulário — e termina em `revalidatePath("/app")`. Erro volta como
+  `{ erro }`, vira toast e mantém o sheet aberto. Ver 5.4 do ARCHITECTURE
+- **O provider não guarda os dados.** Ele lê `dados` da prop, porque é o
+  `revalidatePath` que traz a versão nova; guardar em `useState` congelaria a
+  tela. Desfazer é a ação inversa, preservando o `id`. Ver 5.5
 - **Rotas:** `/` landing, `/login`, `/cadastro` (públicas, estáticas, só tema)
   e `/app` (dinâmica: `layout` Server → `page` Server que busca → `AppRoot`
   client com `useHoje` + provider). Dentro de `/app` as 5 abas trocam por
@@ -64,9 +69,8 @@ estrutura.**
 
 ## Onde estamos
 
-Etapas 0 (período), 1 (banco, schema, seed) e 2 (app lê do servidor) **feitas**.
-Falta: 3 — gravar por Server Actions · 4 — Auth.js · 5 — deploy. Detalhe de
-cada uma em 6.1 do ARCHITECTURE.
+Etapas 0 (período), 1 (banco), 2 (leitura) e 3 (escrita) **feitas**. Falta:
+4 — Auth.js · 5 — deploy. Detalhe em 6.1 do ARCHITECTURE.
 
 Não há sessão: `src/server/usuario.js` devolve a única conta do banco, e é ele
 que vira o `requireUser()` na etapa 4.
@@ -79,11 +83,14 @@ valores é o `.env.example`.
 
 `yarn lint` + validar no navegador em viewport mobile (5 abas, tema claro/escuro,
 FAB → sheet → salvar/editar/excluir com desfazer) e conferir o console limpo.
+Salvar, editar e excluir se conferem **no banco**, incluindo a data; o desfazer
+de uma exclusão tem que devolver o mesmo id.
 
 Com o banco ligado, confira também **números** contra ele (`yarn db:studio`):
 conversão errada na borda dá uma tela que parece certa com valores trocados.
 O badge do Next dev tools fica em cima da aba "Início" — clique automatizado
-ali acerta o badge, não o app.
+ali acerta o badge, não o app. E o log do `next dev` lista cada Server Action
+com argumentos: é ele que desempata quando a tela não diz qual ação rodou.
 
 ### Ao medir a UI pelo DOM
 
@@ -100,3 +107,7 @@ ali acerta o badge, não o app.
 5. Para pergunta visual ("de que cor está?", "está centralizado?"), o
    instrumento certo é o olho. Sem screenshot disponível, prefira ler o
    atributo `style`/`class` a inferir por estilo computado.
+6. **Elemento certo, instância errada.** Procurar "o botão Desfazer" acha o do
+   snackbar anterior, ainda não expirado, e desfaz a ação errada — parecendo
+   ter dado tudo certo. Encadeando ações, espere o snackbar sumir ou
+   identifique pelo texto da mensagem.
