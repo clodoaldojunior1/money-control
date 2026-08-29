@@ -31,8 +31,11 @@ const SUB_OPTIONS = {
 
 const SUB_PADRAO = { trabalho: "variavel", pessoal: "necessario" };
 
+// Em edição a data é a **do registro**, não a de hoje. O campo passou a ser
+// gravado (etapa 3): mostrar hoje faria toda edição mudar a data sem ninguém
+// pedir — e com o mock isso passava despercebido, porque a data era ignorada.
 const toDefaults = (gasto, hoje) => (gasto
-  ? { valor: String(gasto.value), desc: gasto.title, tipo: gasto.tipo, sub: gasto.sub, data: hoje }
+  ? { valor: String(gasto.value), desc: gasto.title, tipo: gasto.tipo, sub: gasto.sub, data: gasto.iso }
   : { valor: "", desc: "", tipo: "trabalho", sub: "variavel", data: hoje });
 
 export function GastoSheet() {

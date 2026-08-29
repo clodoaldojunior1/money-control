@@ -16,8 +16,11 @@ import { FormSegmented } from "../ui/form/FormSegmented";
 
 const METHOD_OPTIONS = METHODS.map((m) => ({ value: m, label: m }));
 
+// Em edição a data é a **do registro**, não a de hoje. O campo passou a ser
+// gravado (etapa 3): mostrar hoje faria toda edição mudar a data sem ninguém
+// pedir — e com o mock isso passava despercebido, porque a data era ignorada.
 const toDefaults = (entrada, hoje) => (entrada
-  ? { client: entrada.client, service: entrada.service, value: String(entrada.value), method: entrada.method, date: hoje }
+  ? { client: entrada.client, service: entrada.service, value: String(entrada.value), method: entrada.method, date: entrada.iso }
   : { client: "", service: "Volume russo", value: "", method: "Pix", date: hoje });
 
 export function EntradaSheet() {

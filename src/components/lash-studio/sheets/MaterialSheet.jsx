@@ -19,8 +19,11 @@ const UNIT_OPTIONS = UNITS.map((u) => ({ value: u, label: u }));
 
 const positivo = (msg) => (v) => parseFloat(v) > 0 || msg;
 
+// Em edição a data é a **do registro**, não a de hoje. O campo passou a ser
+// gravado (etapa 3): mostrar hoje faria toda edição mudar a data sem ninguém
+// pedir — e com o mock isso passava despercebido, porque a data era ignorada.
 const toDefaults = (material, hoje) => (material
-  ? { name: material.name, qty: String(material.qty), unit: material.unit, cost: String(material.cost), min: String(material.min), date: hoje }
+  ? { name: material.name, qty: String(material.qty), unit: material.unit, cost: String(material.cost), min: String(material.min), date: material.iso }
   : { name: "", qty: "1", unit: "un", cost: "", min: "1", date: hoje });
 
 export function MaterialSheet() {
