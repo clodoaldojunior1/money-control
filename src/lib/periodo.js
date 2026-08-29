@@ -40,6 +40,19 @@ export function isoDeDataUTC(data) {
   return `${data.getUTCFullYear()}-${pad(data.getUTCMonth() + 1)}-${pad(data.getUTCDate())}`;
 }
 
+/**
+ * "2026-08-01" → `Date` de meia-noite **UTC**, para gravar em `@db.Date`.
+ *
+ * Inversa exata de `isoDeDataUTC`, e por isso não usa o construtor local: um
+ * servidor a leste de Greenwich gravaria o dia anterior, e um a oeste gravaria
+ * o certo — o mesmo código com resultado dependente de onde roda é pior que
+ * um erro consistente.
+ */
+export function dataUTCDeISO(iso) {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia));
+}
+
 /** Dia de hoje. Só chame no cliente. */
 export function hojeISO() {
   return isoDeData(new Date());
