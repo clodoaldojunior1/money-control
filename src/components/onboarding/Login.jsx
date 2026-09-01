@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -9,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import MuiLink from "@mui/material/Link";
 import Divider from "@mui/material/Divider";
+import Alert from "@mui/material/Alert";
 import LanguageRoundedIcon from "@mui/icons-material/LanguageRounded";
 import { useTheme } from "@mui/material/styles";
 import { PublicShell } from "./PublicShell";
@@ -17,6 +19,7 @@ import { BrandMark } from "./BrandMark";
 import { FormTextField } from "../lash-studio/ui/form/FormTextField";
 import { FormPasswordField } from "../lash-studio/ui/form/FormPasswordField";
 import { FormCheckbox } from "../lash-studio/ui/form/FormCheckbox";
+import { entrar as autenticar } from "../../actions/sessao";
 
 const EMAIL_VALIDO = /\S+@\S+\.\S+/;
 
@@ -29,8 +32,30 @@ export function Login() {
     defaultValues: { email: "", senha: "", manterConectada: true },
   });
 
-  // Sem backend ainda: valida o formulário e entra direto no app.
-  const entrar = () => router.push("/app");
+  const [erro, setErro] = useState(null);
+  const [entrando, iniciarTransicao] = useTransition();
+
+  /**
+   * O `signIn` roda no servidor e devolve `{ erro }` em vez de redirecionar
+   * sozinho: navegação a partir da action tiraria o controle daqui, e a
+   * mensagem de credencial errada precisa aparecer **nesta** tela.
+   *
+   * `router.refresh()` antes do push é o que faz o middleware enxergar o
+   * cookie recém-criado — sem ele a navegação usaria o cache anterior, ainda
+   * sem sessão, e voltaria para cá.
+   */
+  const entrar = (valores) => {
+    setErro(null);
+    iniciarTransicao(async () => {
+      const r = await autenticar({ email: valores.email, senha: valores.senha });
+      if (r?.erro) {
+        setErro(r.erro);
+        return;
+      }
+      router.refresh();
+      router.push("/app");
+    });
+  };
 
   return (
     <PublicShell>
@@ -49,6 +74,8 @@ export function Login() {
         </Typography>
 
         <Stack spacing={2}>
+          {erro && <Alert severity="error" sx={{ fontSize: 13 }}>{erro}</Alert>}
+
           <FormTextField
             control={control}
             name="email"
@@ -81,8 +108,8 @@ export function Login() {
             <MuiLink href="#" underline="hover" sx={{ fontSize: 13, fontWeight: 600 }}>Esqueci a senha</MuiLink>
           </Stack>
 
-          <Button variant="contained" onClick={handleSubmit(entrar)} sx={{ py: 1.9, fontSize: 15 }}>
-            Entrar
+          <Button variant="contained" onClick={handleSubmit(entrar)} disabled={entrando} sx={{ py: 1.9, fontSize: 15 }}>
+            {entrando ? "Entrando…" : "Entrar"}
           </Button>
 
           <Divider sx={{ "&::before, &::after": { borderColor: t.divider } }}>

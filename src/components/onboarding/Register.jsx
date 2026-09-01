@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
 import MuiLink from "@mui/material/Link";
 import { useTheme } from "@mui/material/styles";
 import { PublicShell } from "./PublicShell";
@@ -26,7 +27,6 @@ const VOLUME_OPTIONS = [
 ];
 
 export function Register() {
-  const router = useRouter();
   const { custom } = useTheme();
   const t = custom.tokens;
 
@@ -39,8 +39,17 @@ export function Register() {
 
   const senha = useWatch({ control, name: "senha" });
 
-  // Sem backend ainda: valida o formulário e entra direto no app.
-  const criarConta = () => router.push("/app");
+  const [recusado, setRecusado] = useState(false);
+
+  /**
+   * O cadastro está **fechado** (ARCHITECTURE 6.1): por ora a conta é só do
+   * dono, criada pelo `yarn db:seed`. A tela continua aqui porque o desenho
+   * está pronto e volta a valer quando abrir — o que muda é o desfecho.
+   *
+   * A recusa acontece depois da validação, de propósito: quem preenche errado
+   * vê o erro do campo, não uma negativa genérica.
+   */
+  const criarConta = () => setRecusado(true);
 
   return (
     <PublicShell>
@@ -141,6 +150,14 @@ export function Register() {
               </span>
             }
           />
+
+          {recusado && (
+            <Alert severity="info" sx={{ fontSize: 13 }}>
+              O cadastro ainda não está aberto — por enquanto o Lash Studio tem
+              uma conta só. Se a sua já existe,{" "}
+              <MuiLink component={Link} href="/login" underline="hover" sx={{ fontWeight: 600 }}>entre por aqui</MuiLink>.
+            </Alert>
+          )}
 
           <Button variant="contained" onClick={handleSubmit(criarConta)} sx={{ py: 1.9, fontSize: 15 }}>
             Criar conta e começar
