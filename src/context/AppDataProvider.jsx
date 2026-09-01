@@ -60,7 +60,7 @@ const SHEET_POR_ABA = {
  * `hoje` vem do cliente, resolvido antes da montagem (ver `AppRoot`).
  */
 export function AppDataProvider({ children, hoje, dados }) {
-  const { items, materiais, agendamentos } = dados;
+  const { conta, items, materiais, agendamentos } = dados;
 
   const [periodo, setPeriodo] = useState(() => periodoDe(hoje));
 
@@ -319,7 +319,7 @@ export function AppDataProvider({ children, hoje, dados }) {
 
   const value = useMemo(() => ({
     money,
-    hoje,
+    hoje, conta,
     periodo, ehMesAtual,
     irParaPeriodoAnterior, irParaPeriodoSeguinte, voltarAoMesAtual,
 
@@ -339,7 +339,7 @@ export function AppDataProvider({ children, hoje, dados }) {
     openEntrada, saveEntrada, removeEntrada,
     openMaterial, saveMaterial, removeMaterial,
   }), [
-    money, hoje, periodo, ehMesAtual,
+    money, hoje, conta, periodo, ehMesAtual,
     irParaPeriodoAnterior, irParaPeriodoSeguinte, voltarAoMesAtual,
     items, materiais, agenda, ledgerOut, entradas, totals, faturamentoAnterior,
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,

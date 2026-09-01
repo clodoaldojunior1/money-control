@@ -32,6 +32,7 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 
+import { sair } from "../../actions/sessao";
 import { useColorMode } from "../../context/ColorModeProvider";
 import { useAppData } from "../../context/AppDataProvider";
 import { HeaderIconButton } from "./ui/HeaderIconButton";
@@ -92,6 +93,9 @@ const SHEET_COMPONENTS = {
   material: MaterialSheet,
 };
 
+/** "Manuela Reis" → "Manuela". O cabeçalho cumprimenta, não identifica. */
+const primeiroNome = (nome) => nome.trim().split(" ")[0];
+
 export function AppShell() {
   const { custom } = useTheme();
   const t = custom.tokens;
@@ -99,7 +103,7 @@ export function AppShell() {
   const {
     tab, setTab, sheet, closeSheet, drawerOpen, openDrawer, closeDrawer,
     openContextualSheet, contextualSheet, snack, undo, hoje,
-    restaurarExemplo, salvando,
+    restaurarExemplo, salvando, conta,
   } = useAppData();
 
   const TabComponent = TAB_COMPONENTS[tab] ?? HomeTab;
@@ -131,7 +135,7 @@ export function AppShell() {
               {hoje ? diaPorExtenso(hoje) : ""}
             </Typography>
             <Typography sx={{ fontFamily: "var(--font-heading)", fontSize: 20, lineHeight: 1.15 }}>
-              Olá, Manu
+              Olá, {primeiroNome(conta.nome)}
             </Typography>
           </Box>
           <HeaderIconButton aria-label="Alternar tema" onClick={toggleColorMode}>
@@ -209,11 +213,13 @@ export function AppShell() {
           <Stack sx={{ height: "100%", p: 2.25, pt: 6.5 }}>
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", pb: 2.25 }}>
               <Avatar sx={{ width: 46, height: 46, bgcolor: t.accent, color: t.onAccent, fontFamily: "var(--font-heading)", fontWeight: 700 }}>
-                M
+                {conta.nome.trim()[0]?.toUpperCase()}
               </Avatar>
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 16 }}>Manuela Reis</Typography>
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>Studio Manu Lashes · Plano Pro</Typography>
+                <Typography sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 16 }}>{conta.nome}</Typography>
+                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                  {[conta.studio, "Plano Pro"].filter(Boolean).join(" · ")}
+                </Typography>
               </Box>
             </Stack>
             <Box sx={{ height: "1px", backgroundColor: t.divider, mb: 1.5 }} />
@@ -262,8 +268,10 @@ export function AppShell() {
                   {salvando ? "Restaurando…" : "Restaurar dados de exemplo"}
                 </Box>
               </Button>
+              {/* `sair` é Server Action: encerra a sessão e redireciona para
+                  /login, então não há nada a fechar antes. */}
               <Button
-                onClick={closeDrawer}
+                onClick={() => sair()}
                 startIcon={<LogoutRoundedIcon sx={{ fontSize: 19 }} />}
                 sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.neutral[600] }}
               >

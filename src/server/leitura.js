@@ -1,7 +1,7 @@
 import { prisma } from "../lib/prisma";
 import { CAT_POR_SUB } from "../data/dominio";
 import { diaCurto, isoDeDataUTC } from "../lib/periodo";
-import { usuarioAtual } from "./usuario";
+import { requireUser } from "./usuario";
 
 /**
  * Leitura do banco para a UI. Roda só no servidor.
@@ -91,7 +91,7 @@ const deAgendamento = (a) => ({
  * as demais listas são reordenadas nas abas.
  */
 export async function carregarDados() {
-  const usuario = await usuarioAtual();
+  const usuario = await requireUser();
   const doDono = { where: { userId: usuario.id } };
 
   const [entradas, gastos, materiais, agendamentos] = await Promise.all([
@@ -102,6 +102,10 @@ export async function carregarDados() {
   ]);
 
   return {
+    // A conta vai junto porque a tela mostra o nome e o studio dela. Só o que
+    // aparece na UI atravessa — hash de senha e e-mail não têm o que fazer no
+    // cliente.
+    conta: { nome: usuario.nome, studio: usuario.studio },
     items: [...entradas.map(deEntrada), ...gastos.map(deGasto)],
     materiais: materiais.map(deMaterial),
     agendamentos: agendamentos.map(deAgendamento),
