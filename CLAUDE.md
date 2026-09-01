@@ -15,7 +15,8 @@ estrutura.**
   cor fora de `tokens.js`; transparência se faz com `alpha(token, alphas.x)`,
   nunca concatenando sufixo hex
 - Estado global em `src/context/AppDataProvider.jsx`, consumido via `useAppData()`.
-  Ele **recebe os dados do servidor** por `dadosIniciais` — não busca nada
+  Ele **recebe os dados do servidor** pela prop `dados` e não os copia para
+  estado — quem guarda é o servidor (5.5)
 - **Formulários com React Hook Form**, dentro de cada sheet (o provider não
   guarda estado de formulário). Componentes MUI se ligam via os wrappers em
   `src/components/lash-studio/ui/form/`
@@ -90,6 +91,11 @@ FAB → sheet → salvar/editar/excluir com desfazer) e conferir o console limpo
 Salvar, editar e excluir se conferem **no banco**, incluindo a data; o desfazer
 de uma exclusão tem que devolver o mesmo id.
 
+Mexeu em sessão? O roteiro é: credencial errada (mensagem, sem sessão), certa
+(**chega** em `/app`), `/login` já logada (cai em `/app`) e Sair (`/app` volta
+a barrar). Senha não se digita em campo por automação — para exercitar o
+login, crie uma conta descartável com senha gerada na hora e apague depois.
+
 Com o banco ligado, confira também **números** contra ele (`yarn db:studio`):
 conversão errada na borda dá uma tela que parece certa com valores trocados.
 O badge do Next dev tools fica em cima da aba "Início" — clique automatizado
@@ -100,7 +106,7 @@ com argumentos: é ele que desempata quando a tela não diz qual ação rodou.
 
 1. **`outerHTML`, `className` ou screenshot antes de `getComputedStyle`.** Esse
    último devolve valor defasado quando lido logo após um re-render — mostra o
-   estado anterior. Já custou horas nesta sessão.
+   estado anterior. Já custou horas.
 2. **Duas medições que se contradizem = sonda quebrada, não código quebrado.**
    Se o resultado é logicamente impossível (mesma variável, mesmo render,
    valores diferentes), o instrumento está errado. Desconfie dele primeiro.

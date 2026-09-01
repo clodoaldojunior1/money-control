@@ -19,8 +19,9 @@ verdade visual; o código o traduz para MUI.
 | Estado | React Context (`src/context/`) | sem Redux/Zustand |
 | Formulários | React Hook Form | validação com regras nativas, sem zod/yup |
 | Backend | **Next fullstack** — Server Components leem, Server Actions escrevem | ver 6.1 |
-| Banco | **Postgres na Neon** via Prisma | pronto e povoado; o app ainda não o usa — ver 5.0 |
-| Autenticação | **Auth.js v5** (e-mail e senha) | pendente, etapa 4 |
+| Banco | **Postgres na Neon** via Prisma | fonte da verdade; leitura em 5.1, escrita em 5.4 |
+| Autenticação | **Auth.js v5** (e-mail e senha), sessão em JWT, hash `bcryptjs` | config partida em dois arquivos — ver 5.6 |
+| Guarda de rota | `src/proxy.js` | chamava-se `middleware.js` até o Next 16 deprecar o nome |
 | Fontes | `next/font/google` — Instrument Sans (títulos), Plus Jakarta Sans (corpo) | expostas como `--font-heading` / `--font-body` |
 | Linguagem | JavaScript (`.jsx`/`.js`) | decisão explícita: **não** TypeScript, por produtividade. O pacote `typescript` está em devDependencies apenas porque `eslint-config-next` exige — não escrevemos `.ts` |
 | Gerenciador | **Yarn** | `yarn dev`, `yarn lint`, `yarn build` |
@@ -41,8 +42,8 @@ src/
 │   ├── cadastro/page.jsx     /cadastro (fechado — ver 5.6)
 │   ├── api/auth/[...nextauth]/  endpoints internos do Auth.js
 │   └── app/
-│       ├── layout.jsx        Server Component; guarda de sessão na etapa 4
-│       └── page.jsx          /app → busca no banco → <AppRoot dadosIniciais>
+│       ├── layout.jsx        Server Component; hoje só repassa (ver 5.6)
+│       └── page.jsx          /app → busca no banco → <AppRoot dados>
 │
 ├── auth.js                   Auth.js completo (Credentials + Prisma + bcrypt)
 ├── auth.config.js            Auth.js leve (o que o proxy pode carregar)
@@ -55,7 +56,7 @@ src/
 │
 ├── context/                  Estado global
 │   ├── ColorModeProvider.jsx tema claro/escuro + ThemeProvider + CssBaseline
-│   └── AppDataProvider.jsx   TODO o estado de domínio e de UI do app
+│   └── AppDataProvider.jsx   estado de UI + derivados; os dados vêm por prop
 │
 ├── lib/
 │   ├── periodo.js            datas e períodos (Intl pt-BR, sem armadilha UTC)
@@ -63,7 +64,7 @@ src/
 │   └── prisma.js             instância única do client (driver adapter Neon)
 │
 ├── server/                   só roda no servidor
-│   ├── usuario.js            o dono dos dados (vira requireUser na etapa 4)
+│   ├── usuario.js            requireUser(): a sessão que escopa tudo
 │   ├── leitura.js            Prisma → formato da UI (borda de conversão)
 │   ├── escrita.js            formulário → banco: validação e conversão
 │   └── exemplo.js            gerador dos dados de exemplo (seed + restaurar)
@@ -102,7 +103,8 @@ src/
         └── form/             as mesmas primitivas ligadas ao React Hook
                               Form via Controller (FormTextField,
                               FormSelectField, FormSegmented,
-                              FormMoneyField, FormOptionGroup)
+                              FormMoneyField, FormOptionGroup,
+                              FormCheckbox, FormPasswordField)
 ```
 
 ---
@@ -169,8 +171,11 @@ Duas camadas diferentes, cada uma com o modelo que faz sentido:
 |---|---|---|
 | `/` | Landing | só tema |
 | `/login` | Entrar | só tema |
-| `/cadastro` | Criar conta | só tema |
-| `/app` | O PWA (5 abas) | tema + `AppDataProvider` |
+| `/cadastro` | Criar conta — **fechado**, valida e recusa (5.6) | só tema |
+| `/app` | O PWA (5 abas) — exige sessão | tema + `AppDataProvider` |
+
+O `proxy.js` guarda as duas direções: sem sessão, `/app` manda para `/login`;
+com sessão, `/login` e `/cadastro` mandam para `/app`.
 
 **As telas públicas são rotas de verdade** — landing precisa de URL para ser
 compartilhada e indexada, e login/cadastro precisam de endereço próprio.
@@ -193,8 +198,9 @@ root — as telas públicas não carregam o estado de domínio.
 `useAppData()`:
 
 - **Domínio:** `items` (ledger unificado: entradas `kind:"in"` + gastos
-  `kind:"out"`), `materiais`, `agendamentos` — tudo vindo do servidor por
-  `dadosIniciais` (5.1)
+  `kind:"out"`), `materiais`, `agendamentos` e `conta` — tudo lido da prop
+  `dados`, que o servidor manda a cada render. O provider **não os guarda**
+  em estado, e o porquê disso é 5.5
 - **Derivados (`useMemo`):** `entradas`, `ledgerOut` (gastos + materiais
   projetados como gasto), `totals` (faturamento, trabalho, pessoal, materiais)
   e `agenda` — os agendamentos de `hoje`, porque a agenda é do dia e não do
@@ -245,9 +251,19 @@ a validação passar a depender de relações entre campos ou de regras de negó
 
 ### 3.5 Desfazer (undo)
 
-Toda ação destrutiva/criadora chama `toast(texto, undo)`. O `undo` é um closure
-que restaura o estado anterior (reinserindo no índice original em exclusões).
-Timer de 4,2s limpo no `closeSheet` e nas trocas.
+Toda ação destrutiva/criadora chama `toast(texto, undo)`, e o snackbar dura
+4,2s. É o desfazer que substitui o diálogo de confirmação: o app não pergunta
+"tem certeza?" em lugar nenhum — age e oferece a volta.
+
+**O `undo` é a ação inversa no servidor**, não um closure sobre o estado
+anterior. Criar desfaz excluindo; excluir desfaz criando **com o mesmo id**;
+editar desfaz regravando os valores de antes. Enquanto os dados viviam em
+memória, restaurar era reinserir no índice original; com o banco, índice não
+significa nada e identidade significa tudo (5.5).
+
+A única ação sem inverso barato é "restaurar dados de exemplo", que apaga
+tudo. Ali o "antes" é o retrato que o cliente já tem em mãos, e o desfazer o
+manda de volta inteiro.
 
 ---
 
@@ -282,9 +298,10 @@ Quase tudo no app é **do mês**: faturamento, gastos, materiais comprados. O
 O `PeriodNavigator` (‹ Agosto ›) aparece nas quatro abas de escopo mensal e
 some da Agenda.
 
-**A data do cliente não pode ser lida durante o render.** As rotas são
-pré-renderizadas no build; `new Date()` no render gravaria a data do *build* no
-HTML e divergiria do cliente. A solução é o hook `useHoje` em
+**A data do cliente não pode ser lida durante o render.** O HTML de `/app` é
+gerado no servidor a cada requisição; `new Date()` no render gravaria ali a
+data do *servidor*, que divergiria da do cliente na hidratação — e nas rotas
+públicas, que são estáticas, gravaria a data do *build*. A solução é o hook `useHoje` em
 `src/lib/useHoje.js`, que usa `useSyncExternalStore` com um snapshot de
 servidor diferente do de cliente — a forma suportada pelo React de dizer "este
 valor só existe no cliente", sem erro de hidratação.
@@ -292,14 +309,14 @@ valor só existe no cliente", sem erro de hidratação.
 Daí decorre a ordem de montagem:
 
 ```
-app/app/layout.jsx     resolve `hoje` com useHoje()
-  └─ hoje === null  →  <AppBootSkeleton />   (é o que vai no HTML estático)
-  └─ hoje definido  →  <AppDataProvider hoje={hoje}>
+AppRoot.jsx            resolve `hoje` com useHoje()
+  └─ hoje === null  →  <AppBootSkeleton />   (é o que vai no HTML do servidor)
+  └─ hoje definido  →  <AppDataProvider hoje={hoje} dados={dados}>
 ```
 
-O provider **só monta com a data já conhecida**, então ele semeia tudo nos
-inicializadores de `useState` — sem efeito, sem estado nulo, sem flag de
-"pronto" espalhada pelos componentes.
+O provider **só monta com a data já conhecida**, então não precisa de efeito,
+de estado nulo nem de flag de "pronto" espalhada pelos componentes. (O
+`AppRoot` nasceu no layout e desceu para cá na etapa 2 — ver 5.2.)
 
 > Tentar resolver a data num `useEffect` + `setState` não funciona: o lint do
 > React Compiler barra (`react-hooks/set-state-in-effect`), e com razão — gera
@@ -448,15 +465,16 @@ São dezenas de registros por ano de uso. Quando o volume pesar, o corte passa a
 ser por período — e aí a navegação precisa virar URL, para o servidor saber o
 que buscar.
 
-**Quem é o usuário.** `src/server/usuario.js` devolve a única conta do banco.
-É placeholder assumido: na etapa 4 ele lê a sessão e vira o `requireUser()`,
-sem que nenhum chamador mude.
+**Quem é o usuário.** `requireUser()` (`src/server/usuario.js`) lê a sessão e
+devolve a conta. Foi um placeholder que devolvia a única conta do banco até a
+etapa 4 — e a troca não mexeu em nenhum chamador, que era exatamente a aposta
+de tê-lo isolado desde o começo. Detalhe em 5.6.
 
 ### 5.2 A forma de `/app`
 
 ```
-app/layout.jsx   Server  — nada hoje; guarda de sessão na etapa 4
-app/page.jsx     Server  — carregarDadosIniciais() → <AppRoot dadosIniciais>
+app/layout.jsx   Server  — só repassa; a guarda ficou no proxy (5.6)
+app/page.jsx     Server  — carregarDados() → <AppRoot dados>
 AppRoot.jsx      Client  — useHoje() → skeleton → <AppDataProvider>
 ```
 
@@ -483,9 +501,9 @@ verdade: dois donos do mesmo dado divergem já na primeira gravação. Com ela
 foram embora o aviso fixo de "este navegador não permite salvar" e o
 `gerarSeed` do mock.
 
-**"Restaurar dados de exemplo"** ficou no drawer como "Em breve". Restaurar no
-cliente recriaria a divergência; hoje quem restaura é `yarn db:seed`, e o botão
-volta na etapa 3 como Server Action.
+**"Restaurar dados de exemplo"** ficou no drawer como "Em breve" durante a
+etapa 2 — restaurar no cliente recriaria a divergência — e voltou na etapa 3
+como Server Action (5.4).
 
 ### 5.4 Escrita: Server Actions
 
@@ -494,8 +512,9 @@ excluir), mais `conta.js` para restaurar exemplo. Três regras valem para
 todas, comentadas por extenso em `gastos.js`:
 
 1. **Nunca `where: { id }` sozinho.** `updateMany`/`deleteMany` escopados por
-   `{ id, userId }` fazem o id de outra conta simplesmente não casar. Hoje há
-   uma conta só e isso é teórico; na etapa 4 deixa de ser, e custa uma linha.
+   `{ id, userId }` fazem o id de outra conta simplesmente não casar. Era
+   teórico enquanto havia uma conta só; desde a etapa 4 o `userId` vem da
+   sessão (5.6), e essa linha é o que separa as contas.
 2. **`revalidatePath("/app")` no fim.** É por ele que a tela recebe o
    resultado — ver 5.5.
 3. **`criar` aceita um `id`.** O desfazer de uma exclusão recria o registro
@@ -630,11 +649,17 @@ viável.
 | 4 | Auth.js v5 (e-mail e senha) (5.6) | ✅ feito |
 | 5 | Deploy na Vercel | pendente |
 
+**Etapa 5 — deploy.** O que já se sabe que ela precisa: `DATABASE_URL` e
+`AUTH_SECRET` como variáveis de ambiente na Vercel (o `SEED_EMAIL`/`SEED_SENHA`
+só servem ao seed, que não roda em produção), e a decisão de o banco de
+produção ser o mesmo projeto Neon ou um branch dele. `bcryptjs` e o driver
+adapter do Neon já foram escolhidos pensando neste momento — nenhum binário
+nativo para compilar, nenhuma conexão persistente para manter.
+
 **Etapa 2 — leitura. Feita.** O provider vivia no *layout* de `/app`, que é
 client e fica **acima** da página: dado buscado na página não subia até ele.
-Ficou `layout` → Server Component (guarda de sessão na etapa 4), `page` →
-Server Component que busca, e o `AppRoot` client com `useHoje` + skeleton +
-provider. A conversão de tipos acontece numa borda só, e por isso **nenhum
+Ficou `layout` → Server Component, `page` → Server Component que busca, e o
+`AppRoot` client com `useHoje` + skeleton + provider. A conversão de tipos acontece numa borda só, e por isso **nenhum
 componente de UI mudou**. O detalhe está em 5.1 e 5.2; o `localStorage` saiu
 junto (5.3).
 
@@ -650,9 +675,10 @@ inverso barato. Detalhe em 5.4 e 5.5.
 **Etapa 4 — auth. Feita.** A armadilha prevista se confirmou e a config
 dividida resolveu (detalhe em 5.6). Duas que não estavam previstas: o callback
 `authorized` não honra um `Response.redirect`, então as regras de rota foram
-para o wrapper do `proxy.js`; e o `matcher` precisa de `\.` para casar um
-ponto literal — com uma barra só, o proxy rodava apenas em `/` e a proteção
-parecia funcionar porque `requireUser()` redirecionava por baixo.
+para o wrapper do `proxy.js`; e o `matcher` precisa de **duas** barras para
+casar um ponto literal (é string JS antes de virar regex) — com uma só, o
+proxy rodava apenas em `/`, e a proteção parecia funcionar porque
+`requireUser()` redirecionava por baixo.
 
 **Sobre o Auth da Neon.** A onboarding deles oferece Better Auth gerenciado.
 Foi avaliado e recusado: amarra o login ao fornecedor. Usamos a Neon **apenas
@@ -750,8 +776,9 @@ então nada muda no lado de formulários.
 yarn dev
 ```
 
-O preview do Claude Code está configurado em `.claude/launch.json` (anexa em
-`http://localhost:3000`, não sobe processo novo).
+O preview do Claude Code está configurado em `.claude/launch.json` — ele sobe
+o `yarn dev` na porta 3000 (antes só sabia se anexar a um servidor já em pé, e
+isso deixava a sessão sem preview quando o processo caía).
 
 Antes de considerar uma mudança pronta:
 
@@ -772,9 +799,20 @@ a linha no banco** — inclusive a data, que é onde o fuso morde (4.6). O
 desfazer de uma exclusão tem que devolver o **mesmo id**, não um registro
 parecido.
 
-Um detalhe do ambiente: o badge do Next.js dev tools fica no canto inferior
-esquerdo, **em cima da aba "Início"**. Cliques automatizados naquele ponto
-acertam o badge, não o app.
+Com sessão, o roteiro ganha mais quatro passos, e todos já falharam alguma vez
+em algum projeto: entrar com credencial **errada** (mensagem na tela, sem
+sessão criada), entrar com a certa (tem que **chegar** em `/app`, não voltar
+para o login), ir a `/login` **já logada** (tem que cair em `/app`) e sair
+(tem que voltar a barrar `/app`).
+
+Dois detalhes do ambiente:
+
+- O badge do Next.js dev tools fica no canto inferior esquerdo, **em cima da
+  aba "Início"**. Cliques automatizados naquele ponto acertam o badge, não o
+  app.
+- Senha não se digita em campo por automação. Para exercitar o login sem
+  manusear credencial de ninguém, crie uma conta descartável com senha gerada
+  na hora, teste, e apague a linha no fim.
 
 ### 7.1 Medindo a UI pelo DOM — armadilha de instrumento
 

@@ -5,10 +5,13 @@
 // 1. **Dinheiro é `Decimal(10,2)`, nunca `Float`.** Ponto flutuante erra
 //    centavos ao somar, e isto é registro financeiro.
 // 2. **Datas são `@db.Date`, sem hora.** Guardar timestamp reintroduziria o
-//    problema de fuso que `src/lib/periodo.js` resolveu.
+//    problema de fuso que `src/lib/periodo.js` resolveu. Mas atenção: o
+//    Prisma devolve essas colunas como **meia-noite UTC**, e lê-las com os
+//    getters locais erra um dia. Converta só na borda, com `isoDeDataUTC` na
+//    leitura e `dataUTCDeISO` na escrita.
 // 3. **Campo derivado não é coluna.** O rótulo curto (`date`) sai de
-//    `diaCurto(iso)` e a categoria do gasto (`cat`) sai de `CAT_POR_SUB[sub]`,
-//    ambos já no código.
+//    `diaCurto(iso)` e a categoria do gasto (`cat`) sai de `CAT_POR_SUB[sub]`
+//    (`src/data/dominio.js`). Os dois nascem em `src/server/leitura.js`.
 
 // Usamos o generator legado `prisma-client-js`, e não o `prisma-client` novo,
 // porque este projeto é JavaScript: o generator novo emite TypeScript, e pedir
