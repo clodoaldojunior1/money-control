@@ -38,10 +38,15 @@ src/
 │   ├── providers.js          AppRouterCache > ColorMode (global)
 │   ├── page.jsx              / → <Landing />
 │   ├── login/page.jsx        /login
-│   ├── cadastro/page.jsx     /cadastro
+│   ├── cadastro/page.jsx     /cadastro (fechado — ver 5.6)
+│   ├── api/auth/[...nextauth]/  endpoints internos do Auth.js
 │   └── app/
 │       ├── layout.jsx        Server Component; guarda de sessão na etapa 4
 │       └── page.jsx          /app → busca no banco → <AppRoot dadosIniciais>
+│
+├── auth.js                   Auth.js completo (Credentials + Prisma + bcrypt)
+├── auth.config.js            Auth.js leve (o que o proxy pode carregar)
+├── proxy.js                  guarda de rota (era middleware.js até o Next 16)
 │
 ├── theme/                    Design system (fonte única de verdade visual)
 │   ├── tokens.js             tokens light/dark: cores, rampas, sombras, raios
@@ -64,6 +69,7 @@ src/
 │   └── exemplo.js            gerador dos dados de exemplo (seed + restaurar)
 │
 ├── actions/                  Server Actions ("use server")
+│   ├── sessao.js             entrar e sair
 │   ├── entradas.js           criar / atualizar / excluir, por entidade
 │   ├── gastos.js             (as três regras comuns estão comentadas aqui)
 │   ├── materiais.js
@@ -541,6 +547,51 @@ retrato de volta (`substituirDados`). Apagar e regravar acontecem na mesma
 transação — é o único ponto do app onde uma falha no meio deixaria a conta
 vazia.
 
+### 5.6 Sessão (Auth.js v5)
+
+Login por e-mail e senha, sessão em **JWT**. Não é preferência: o provider
+Credentials do Auth.js v5 só funciona assim. Hash com **`bcryptjs`** — o
+`bcrypt` é binário nativo e precisaria compilar no destino.
+
+**A config vive partida em dois arquivos**, e essa é a decisão central:
+
+- `auth.config.js` — só o declarativo (página de login, callbacks do token).
+  É o que o `proxy.js` carrega, porque ele roda no runtime **edge**, onde o
+  Prisma não conecta.
+- `auth.js` — o provider de credenciais, que consulta o banco e compara o
+  hash. Só roda no Node.
+
+A chave `providers: []` na config leve parece supérflua e não é: `NextAuth()`
+itera sobre ela na inicialização e, sem a chave, estoura com um
+`undefined.map` que não diz nada sobre a causa.
+
+**`requireUser()`** (`src/server/usuario.js`) substituiu o placeholder da etapa
+2. Lê a sessão e redireciona para `/login` quando não há — em vez de devolver
+`null` — porque quem chama está sempre dentro de `/app` ou de uma ação dele, e
+ali "sem sessão" não é estado a tratar. Ele também cobre o que o proxy não vê:
+a sessão que expira **entre** a página abrir e uma Server Action rodar.
+
+**As regras de rota ficam no `proxy.js`, não no callback `authorized`.** A
+primeira versão devolvia `Response.redirect` de dentro daquele callback e o
+redirecionamento simplesmente não acontecia — a requisição seguia e quem já
+estava logada via a tela de login. Devolver `false` funciona, mas só sabe
+mandar para a página de login. Escrever as duas decisões no wrapper deixa a
+regra explícita e independente de como a biblioteca interpreta o retorno.
+
+**O nome do arquivo é `proxy.js`.** O Next 16 deprecou `middleware.js` e avisa
+a cada boot; a documentação do Auth.js ainda usa o nome antigo.
+
+**Cadastro fechado.** `/cadastro` continua existindo e validando, mas o envio
+recusa com uma mensagem — a conta é só do dono, criada pelo `yarn db:seed`. A
+recusa vem **depois** da validação, de propósito: quem preenche errado vê o
+erro do campo, não uma negativa genérica.
+
+**O que a UI passou a tirar da sessão:** nome, primeiro nome no cabeçalho,
+studio e a inicial do avatar. Eles eram literais ("Manuela Reis"), o que
+deixava uma conta autenticada exibindo o nome de outra pessoa. A conta viaja
+junto com os dados, em `carregarDados` — só o que aparece na tela: hash e
+e-mail não atravessam.
+
 ---
 
 ## 6. Planejamento futuro
@@ -576,7 +627,7 @@ viável.
 | 1 | Banco, schema e seed (5.0) | ✅ feito |
 | 2 | App **lê** do servidor (5.1, 5.2) | ✅ feito |
 | 3 | App **grava** por Server Actions (5.4, 5.5) | ✅ feito |
-| 4 | Auth.js v5 (e-mail e senha) | pendente |
+| 4 | Auth.js v5 (e-mail e senha) (5.6) | ✅ feito |
 | 5 | Deploy na Vercel | pendente |
 
 **Etapa 2 — leitura. Feita.** O provider vivia no *layout* de `/app`, que é
@@ -596,12 +647,12 @@ apareceram ao implementar: o provider precisou **parar de guardar os dados**
 exemplo" precisou de uma ação inversa própria, porque apagar tudo não tem
 inverso barato. Detalhe em 5.4 e 5.5.
 
-**Etapa 4 — auth.** Armadilha conhecida: o middleware roda no runtime edge,
-onde bcrypt e Prisma não funcionam. A saída é a config dividida do Auth.js —
-`auth.config.js` leve para o middleware, `auth.js` completo no runtime Node.
-Sessão em JWT (obrigatório com Credentials), hash com `bcryptjs` (puro JS, sem
-binário nativo para quebrar no deploy). `/cadastro` fica fechado: por ora a
-conta é só do dono, criada pelo seed.
+**Etapa 4 — auth. Feita.** A armadilha prevista se confirmou e a config
+dividida resolveu (detalhe em 5.6). Duas que não estavam previstas: o callback
+`authorized` não honra um `Response.redirect`, então as regras de rota foram
+para o wrapper do `proxy.js`; e o `matcher` precisa de `\.` para casar um
+ponto literal — com uma barra só, o proxy rodava apenas em `/` e a proteção
+parecia funcionar porque `requireUser()` redirecionava por baixo.
 
 **Sobre o Auth da Neon.** A onboarding deles oferece Better Auth gerenciado.
 Foi avaliado e recusado: amarra o login ao fornecedor. Usamos a Neon **apenas
@@ -628,10 +679,19 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
 
 ### 6.4 Itens em aberto (não decididos)
 
-- **Autenticação de verdade** — as telas `/login` e `/cadastro` existem e
-  validam os campos, mas **não autenticam**: qualquer formulário válido
-  navega para `/app`. Não há sessão, guarda de rota nem proteção de `/app`.
-  Entra junto com a API (6.1). O drawer também tem perfil e "Sair" mockados
+- **"Manter conectada"** — o checkbox do login é decorativo: a sessão dura 30
+  dias marcado ou não. Implementá-lo exige duas durações de JWT decididas na
+  chamada do `signIn`, e não muda nada perceptível hoje
+- **"Esqueci a senha" e "Continuar com Google"** — links sem destino na tela
+  de login. O segundo é um provider a mais no Auth.js; o primeiro precisa de
+  e-mail transacional, que o projeto não tem
+- **`"Em atendimento"` fora de `STATUSES`** — o seed grava esse status, mas
+  ele não está na lista que o formulário oferece: quem editar um agendamento
+  assim perde o status. Por isso a validação de status não é lista fechada
+  (5.4)
+- **Aviso do Node no `yarn db:seed`** — `prisma/seed.mjs` importa um `.js` de
+  um pacote sem `"type": "module"`, e o Node avisa que reinterpretou o arquivo.
+  É cosmético e só no seed
 - **Persistência do tema** — os dados vivem no banco (5.0), mas o modo
   claro/escuro não: ele vive só em estado React e volta ao claro a cada
   recarga. Ficou de fora de propósito, porque é mais caro que o resto — o tema
@@ -739,7 +799,13 @@ navegador, o risco deixa de ser o código e passa a ser **a medição**.
    desfaz a ação errada — com tudo parecendo ter funcionado. Ao encadear
    ações com desfazer, espere o snackbar sumir antes da próxima, ou identifique
    o alvo pelo texto da mensagem, não pelo botão.
-6. **O log do servidor desempata.** Quando a tela não diz qual ação rodou, o
+6. **Uma barra a menos e a sonda mente.** O `matcher` do proxy tinha `"\."`
+   onde precisava de `"\."`: em string JS a barra some, o ponto vira
+   "qualquer caractere" e o proxy passou a rodar só em `/`. O teste de rota
+   protegida continuava passando — porque `requireUser()` redirecionava por
+   baixo. **Verifique qual camada respondeu**, não só que a resposta veio: um
+   cabeçalho temporário na resposta do proxy resolve em um minuto.
+7. **O log do servidor desempata.** Quando a tela não diz qual ação rodou, o
    log do `next dev` lista as Server Actions com argumentos e duração — foi
    ele que revelou o `criarEntrada → excluirEntrada → restaurarExemplo` que
    denunciou a regra 5.

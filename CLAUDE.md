@@ -42,8 +42,13 @@ estrutura.**
   e `/app` (dinâmica: `layout` Server → `page` Server que busca → `AppRoot`
   client com `useHoje` + provider). Dentro de `/app` as 5 abas trocam por
   estado, não por navegação
-- **Login/cadastro validam mas não autenticam** — qualquer formulário válido
-  entra em `/app`. Não há sessão nem guarda de rota até a etapa 4
+- **Sessão: Auth.js v5**, e-mail e senha, JWT (obrigatório com Credentials),
+  hash `bcryptjs`. A config é **partida em dois**: `auth.config.js` leve para o
+  `proxy.js` (runtime edge, sem Prisma) e `auth.js` completo no Node. As regras
+  de rota ficam no wrapper do `proxy.js`, não no callback `authorized`. Ver 5.6
+- **`requireUser()`** escopa toda leitura e escrita, e redireciona para
+  `/login` quando não há sessão. `/cadastro` valida mas recusa: a conta é do
+  dono, criada pelo seed
 
 ## Armadilhas que já nos morderam
 
@@ -69,11 +74,10 @@ estrutura.**
 
 ## Onde estamos
 
-Etapas 0 (período), 1 (banco), 2 (leitura) e 3 (escrita) **feitas**. Falta:
-4 — Auth.js · 5 — deploy. Detalhe em 6.1 do ARCHITECTURE.
+Etapas 0 (período), 1 (banco), 2 (leitura), 3 (escrita) e 4 (auth) **feitas**.
+Falta: 5 — deploy. Detalhe em 6.1 do ARCHITECTURE.
 
-Não há sessão: `src/server/usuario.js` devolve a única conta do banco, e é ele
-que vira o `requireUser()` na etapa 4.
+`AUTH_SECRET` é obrigatório no `.env.local` — sem ele o login não assina nada.
 
 Banco: projeto **"Studio de Controle"** na Neon. Comandos `yarn db:migrate`,
 `db:seed`, `db:studio`. Segredos em `.env.local` (fora do git); o template sem
@@ -111,3 +115,7 @@ com argumentos: é ele que desempata quando a tela não diz qual ação rodou.
    snackbar anterior, ainda não expirado, e desfaz a ação errada — parecendo
    ter dado tudo certo. Encadeando ações, espere o snackbar sumir ou
    identifique pelo texto da mensagem.
+7. **Confira qual camada respondeu, não só que respondeu.** Por uma barra a
+   menos no `matcher`, o proxy rodava só em `/` — e mesmo assim o teste de
+   rota protegida passava, porque o `requireUser()` redirecionava por baixo.
+   Um cabeçalho temporário na resposta do proxy distingue as duas.
