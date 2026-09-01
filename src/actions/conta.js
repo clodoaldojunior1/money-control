@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../lib/prisma";
-import { usuarioAtual } from "../server/usuario";
+import { requireUser } from "../server/usuario";
 import { dadosDeExemplo } from "../server/exemplo";
 import { comResultado, dia, diaISO, dinheiro, hora, inteiro, texto, umDe } from "../server/escrita";
 
@@ -70,7 +70,7 @@ async function regravar(userId, { entradas, gastos, materiais, agendamentos }) {
 /** `hoje` vem do cliente: o dia de exemplo é o dela, não o do servidor. */
 export async function restaurarExemplo(hoje) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     await regravar(usuario.id, dadosDeExemplo(diaISO(hoje)));
     return { ok: true };
   });
@@ -79,7 +79,7 @@ export async function restaurarExemplo(hoje) {
 /** Desfazer do restaurar: devolve o retrato que o cliente tinha em mãos. */
 export async function substituirDados(retrato) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     await regravar(usuario.id, {
       entradas: (retrato.entradas ?? []).map(entrada),
       gastos: (retrato.gastos ?? []).map(gasto),

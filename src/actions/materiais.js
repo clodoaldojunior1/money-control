@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../lib/prisma";
-import { usuarioAtual } from "../server/usuario";
+import { requireUser } from "../server/usuario";
 import { comResultado, dia, dinheiro, inteiro, texto } from "../server/escrita";
 
 // As três regras destas ações estão comentadas em `gastos.js`.
@@ -18,7 +18,7 @@ const campos = (m) => ({
 
 export async function criarMaterial(material) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const criado = await prisma.material.create({
       data: { ...campos(material), userId: usuario.id, ...(material.id ? { id: material.id } : {}) },
     });
@@ -29,7 +29,7 @@ export async function criarMaterial(material) {
 
 export async function atualizarMaterial(id, material) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.material.updateMany({
       where: { id, userId: usuario.id },
       data: campos(material),
@@ -42,7 +42,7 @@ export async function atualizarMaterial(id, material) {
 
 export async function excluirMaterial(id) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.material.deleteMany({ where: { id, userId: usuario.id } });
     if (!count) return { erro: "Material não encontrado." };
     revalidatePath("/app");

@@ -1,25 +1,27 @@
+import { redirect } from "next/navigation";
+import { auth } from "../auth";
 import { prisma } from "../lib/prisma";
 
 /**
- * O dono dos dados.
+ * O dono dos dados da requisição atual.
  *
- * **Placeholder até a etapa 4 (ARCHITECTURE 6.1).** Não existe sessão ainda,
- * então "o usuário" é a única conta do banco — a que `yarn db:seed` cria.
- * Quando o Auth.js entrar, esta função passa a ler a sessão e vira o
- * `requireUser()` do plano, sem que nenhum chamador mude.
+ * Substituiu o placeholder que devolvia a única conta do banco. Toda leitura e
+ * toda escrita passam por aqui, e é o `id` daqui que escopa as consultas —
+ * nunca um id vindo do cliente.
  *
- * `SEED_EMAIL` tem precedência para o caso de o banco ganhar outras contas
- * antes da etapa 4; sem ela, cai na conta mais antiga.
+ * **Redireciona em vez de devolver `null`.** Quem chama está sempre dentro de
+ * `/app` ou de uma Server Action de `/app`, e nesses lugares "sem sessão" não
+ * é um estado a tratar: é para sair. O middleware já barra a navegação; isto
+ * cobre o caso da sessão que expira **entre** a página abrir e a ação rodar —
+ * o middleware não vê Server Action de rota já carregada.
  */
-export async function usuarioAtual() {
-  const email = process.env.SEED_EMAIL;
+export async function requireUser() {
+  const sessao = await auth();
+  const id = sessao?.user?.id;
+  if (!id) redirect("/login");
 
-  const usuario =
-    (email ? await prisma.user.findUnique({ where: { email } }) : null) ??
-    (await prisma.user.findFirst({ orderBy: { criadoEm: "asc" } }));
+  const usuario = await prisma.user.findUnique({ where: { id } });
+  if (!usuario) redirect("/login"); // conta apagada com o token ainda válido
 
-  if (!usuario) {
-    throw new Error("Nenhuma conta no banco — rode `yarn db:seed`.");
-  }
   return usuario;
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../lib/prisma";
-import { usuarioAtual } from "../server/usuario";
+import { requireUser } from "../server/usuario";
 import { comResultado, dia, dinheiro, hora, texto } from "../server/escrita";
 
 // As três regras destas ações estão comentadas em `gastos.js`.
@@ -19,7 +19,7 @@ const campos = (a) => ({
 
 export async function criarAgendamento(agendamento) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const criado = await prisma.agendamento.create({
       data: { ...campos(agendamento), userId: usuario.id, ...(agendamento.id ? { id: agendamento.id } : {}) },
     });
@@ -30,7 +30,7 @@ export async function criarAgendamento(agendamento) {
 
 export async function atualizarAgendamento(id, agendamento) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.agendamento.updateMany({
       where: { id, userId: usuario.id },
       data: campos(agendamento),
@@ -43,7 +43,7 @@ export async function atualizarAgendamento(id, agendamento) {
 
 export async function excluirAgendamento(id) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.agendamento.deleteMany({ where: { id, userId: usuario.id } });
     if (!count) return { erro: "Agendamento não encontrado." };
     revalidatePath("/app");

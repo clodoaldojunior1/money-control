@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../lib/prisma";
-import { usuarioAtual } from "../server/usuario";
+import { requireUser } from "../server/usuario";
 import { comResultado, dia, dinheiro, texto, umDe } from "../server/escrita";
 
 /**
@@ -33,7 +33,7 @@ const campos = (g) => ({
 
 export async function criarGasto(gasto) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const criado = await prisma.gasto.create({
       data: { ...campos(gasto), userId: usuario.id, ...(gasto.id ? { id: gasto.id } : {}) },
     });
@@ -44,7 +44,7 @@ export async function criarGasto(gasto) {
 
 export async function atualizarGasto(id, gasto) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.gasto.updateMany({
       where: { id, userId: usuario.id },
       data: campos(gasto),
@@ -57,7 +57,7 @@ export async function atualizarGasto(id, gasto) {
 
 export async function excluirGasto(id) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.gasto.deleteMany({ where: { id, userId: usuario.id } });
     if (!count) return { erro: "Gasto não encontrado." };
     revalidatePath("/app");

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "../lib/prisma";
-import { usuarioAtual } from "../server/usuario";
+import { requireUser } from "../server/usuario";
 import { comResultado, dia, dinheiro, texto } from "../server/escrita";
 
 // As três regras destas ações estão comentadas em `gastos.js`.
@@ -17,7 +17,7 @@ const campos = (e) => ({
 
 export async function criarEntrada(entrada) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const criada = await prisma.entrada.create({
       data: { ...campos(entrada), userId: usuario.id, ...(entrada.id ? { id: entrada.id } : {}) },
     });
@@ -28,7 +28,7 @@ export async function criarEntrada(entrada) {
 
 export async function atualizarEntrada(id, entrada) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.entrada.updateMany({
       where: { id, userId: usuario.id },
       data: campos(entrada),
@@ -41,7 +41,7 @@ export async function atualizarEntrada(id, entrada) {
 
 export async function excluirEntrada(id) {
   return comResultado(async () => {
-    const usuario = await usuarioAtual();
+    const usuario = await requireUser();
     const { count } = await prisma.entrada.deleteMany({ where: { id, userId: usuario.id } });
     if (!count) return { erro: "Entrada não encontrada." };
     revalidatePath("/app");
