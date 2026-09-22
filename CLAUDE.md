@@ -72,6 +72,10 @@ estrutura.**
 8. **A mesma armadilha ao contrário no banco:** Prisma devolve `@db.Date` como
    meia-noite **UTC**, então ali quem erra por um dia é o getter *local*. Use
    `isoDeDataUTC`, e só na borda de leitura.
+9. **Erro de hidratação em atributo do `<html>` quase sempre é extensão do
+   navegador**, não código. Antes de investigar, abra em aba anônima: se sumir,
+   é extensão. O `<html>` já tem `suppressHydrationWarning` por isso — vale só
+   para os atributos dele; divergência dentro das páginas continua acusada.
 
 ## Onde estamos
 

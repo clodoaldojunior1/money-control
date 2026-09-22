@@ -723,7 +723,9 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
   recarga. Ficou de fora de propósito, porque é mais caro que o resto — o tema
   afeta a **primeira pintura**, então sem um script bloqueante no `<head>` a
   página aparece clara e pisca para escura. As telas públicas também não têm
-  controle para alterná-lo
+  controle para alterná-lo. Quando entrar, o script vai alterar o `<html>`
+  antes da hidratação — o `suppressHydrationWarning` que já está lá (posto
+  por causa de extensões do navegador) cobre esse caso também
 - **PWA de fato** — manifest, service worker, instalação. Hoje é "mobile-first",
   não instalável
 - **Resolver de schema (zod/yup)** — segue em aberto de propósito: a etapa 3

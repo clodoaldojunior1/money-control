@@ -28,8 +28,16 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }) {
+  // `suppressHydrationWarning` porque extensões do navegador (tema escuro,
+  // tradução) acrescentam classes ao <html> antes de o React hidratar — o erro
+  // sumia na aba anônima e num navegador limpo. Vale só para os atributos
+  // desta tag: divergência real dentro das páginas continua sendo acusada.
   return (
-    <html lang="pt-BR" className={`${instrumentSans.variable} ${plusJakartaSans.variable}`}>
+    <html
+      lang="pt-BR"
+      className={`${instrumentSans.variable} ${plusJakartaSans.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         <Providers>
           {children}
