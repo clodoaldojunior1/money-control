@@ -49,6 +49,20 @@ const agendamento = (a) => ({
   status: texto(a.status, "Status"), valor: dinheiro(a.valor, "Valor do serviço"),
 });
 
+/**
+ * **As duas ações só existem no `yarn dev`.** Em produção a conta tem dados
+ * reais, e um toque sem querer no drawer apagaria o histórico inteiro — com um
+ * desfazer que some em 4 segundos. Esconder o botão não bastaria: Server Action
+ * é endpoint e continua respondendo sem botão nenhum. Então a trava vem antes
+ * de qualquer acesso ao banco.
+ *
+ * `NODE_ENV` e não `VERCEL_ENV`: o preview também é `production`, e é o que se
+ * quer — enquanto a `DATABASE_URL` de preview não estiver separada, ele aponta
+ * para o banco real.
+ */
+const PERMITIDO = process.env.NODE_ENV !== "production";
+const RECUSA = { erro: "Restaurar dados de exemplo só existe em desenvolvimento." };
+
 /** Apaga tudo da conta e grava o conjunto recebido, já no formato do banco. */
 async function regravar(userId, { entradas, gastos, materiais, agendamentos }) {
   const comDono = (lista) => lista.map((r) => ({ ...r, userId }));
@@ -69,6 +83,7 @@ async function regravar(userId, { entradas, gastos, materiais, agendamentos }) {
 
 /** `hoje` vem do cliente: o dia de exemplo é o dela, não o do servidor. */
 export async function restaurarExemplo(hoje) {
+  if (!PERMITIDO) return RECUSA;
   return comResultado(async () => {
     const usuario = await requireUser();
     await regravar(usuario.id, dadosDeExemplo(diaISO(hoje)));
@@ -78,6 +93,7 @@ export async function restaurarExemplo(hoje) {
 
 /** Desfazer do restaurar: devolve o retrato que o cliente tinha em mãos. */
 export async function substituirDados(retrato) {
+  if (!PERMITIDO) return RECUSA;
   return comResultado(async () => {
     const usuario = await requireUser();
     await regravar(usuario.id, {
