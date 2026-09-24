@@ -75,7 +75,7 @@ src/
 │   ├── gastos.js             (as três regras comuns estão comentadas aqui)
 │   ├── materiais.js
 │   ├── agenda.js
-│   └── conta.js              restaurar exemplo e o desfazer dele
+│   └── conta.js              restaurar exemplo e o desfazer dele (só em dev)
 │
 ├── data/
 │   └── dominio.js            BRL + listas de domínio + CAT_POR_SUB
@@ -565,6 +565,26 @@ quem tem o "antes" é o cliente, que já recebeu os dados. O desfazer manda esse
 retrato de volta (`substituirDados`). Apagar e regravar acontecem na mesma
 transação — é o único ponto do app onde uma falha no meio deixaria a conta
 vazia.
+
+**E só existe em desenvolvimento.** Quando a dona do studio passou a usar o
+sistema com dados reais, o botão virou o maior risco do app: um toque sem
+querer no drawer apagava o histórico inteiro, com um desfazer que some em 4
+segundos. A trava está nos dois lados:
+
+- O **botão** sai do bundle de produção. A comparação com `NODE_ENV` fica
+  escrita no próprio JSX, e não importada, para o build substituí-la por uma
+  constante e cortar o trecho — verificado procurando o texto do botão nos
+  arquivos de `.next/static`, com "Tema escuro", do mesmo drawer, como
+  controle.
+- As **ações** (`restaurarExemplo` e `substituirDados`) recusam antes de tocar
+  no banco. Esconder o botão não bastaria: Server Action é endpoint e responde
+  sem botão nenhum. O `substituirDados` entra junto porque troca a conta
+  inteira pelo que receber.
+
+É `NODE_ENV`, e não `VERCEL_ENV`, de propósito: o preview também roda como
+`production`, e enquanto a `DATABASE_URL` de preview não for separada ele
+aponta para o banco real. Para restaurar o ambiente de desenvolvimento,
+continuam valendo o botão no `yarn dev` e o `yarn db:seed`.
 
 ### 5.6 Sessão (Auth.js v5)
 

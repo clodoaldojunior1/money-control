@@ -256,18 +256,23 @@ export function AppShell() {
               >
                 {isDark ? "Tema claro" : "Tema escuro"}
               </Button>
-              {/* Apaga e regrava no banco. Sem diálogo de confirmação, como o
-                  resto do app: quem confirma é o desfazer do snackbar. */}
-              <Button
-                onClick={restaurarExemplo}
-                disabled={salvando}
-                startIcon={<RestartAltRoundedIcon sx={{ fontSize: 19 }} />}
-                sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.text }}
-              >
-                <Box component="span" sx={{ flex: 1, textAlign: "left" }}>
-                  {salvando ? "Restaurando…" : "Restaurar dados de exemplo"}
-                </Box>
-              </Button>
+              {/* Só em desenvolvimento: apaga e regrava a conta inteira, e em
+                  produção os dados são reais (ver `src/actions/conta.js`, que
+                  recusa também do lado do servidor). A comparação fica escrita
+                  aqui, e não importada, para o build substituir `NODE_ENV` e
+                  cortar o botão do bundle de produção. */}
+              {process.env.NODE_ENV !== "production" && (
+                <Button
+                  onClick={restaurarExemplo}
+                  disabled={salvando}
+                  startIcon={<RestartAltRoundedIcon sx={{ fontSize: 19 }} />}
+                  sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.text }}
+                >
+                  <Box component="span" sx={{ flex: 1, textAlign: "left" }}>
+                    {salvando ? "Restaurando…" : "Restaurar dados de exemplo"}
+                  </Box>
+                </Button>
+              )}
               {/* `sair` é Server Action: encerra a sessão e redireciona para
                   /login, então não há nada a fechar antes. */}
               <Button
