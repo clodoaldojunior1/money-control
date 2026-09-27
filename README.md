@@ -47,7 +47,7 @@ Abra <http://localhost:3000>. Entre em `/login` com `SEED_EMAIL` e
 | Comando | O que faz |
 |---|---|
 | `yarn dev` | Servidor de desenvolvimento |
-| `yarn build` | Build de produção |
+| `yarn build` | Aplica migrações pendentes e compila |
 | `yarn lint` | ESLint — roda antes de considerar qualquer coisa pronta |
 | `yarn db:migrate` | Aplica migrações (Prisma) |
 | `yarn db:seed` | Recria a conta e os dados de exemplo. Idempotente |
@@ -125,7 +125,7 @@ em outro lugar, e vale ler antes de mexer na estrutura:
 | 2 | App lê do servidor | ✅ |
 | 3 | App grava por Server Actions | ✅ |
 | 4 | Autenticação (Auth.js v5) | ✅ |
-| 5 | Deploy na Vercel | pendente |
+| 5 | Deploy na Vercel | ✅ |
 
 O que ficou conscientemente de fora — "manter conectada", recuperação de
 senha, login com Google, persistência do tema, PWA instalável — está listado

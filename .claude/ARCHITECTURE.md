@@ -631,6 +631,47 @@ deixava uma conta autenticada exibindo o nome de outra pessoa. A conta viaja
 junto com os dados, em `carregarDados` — só o que aparece na tela: hash e
 e-mail não atravessam.
 
+### 5.7 Deploy e migrações
+
+Vercel ligada ao GitHub: **push na `main` publica em produção**, push em
+qualquer outro branch gera um preview com URL própria. Mudança vai por branch,
+é conferida no preview e só então é juntada.
+
+**Dois bancos, um projeto na Neon.** O branch `production` é o de verdade; o
+`desenvolvimento`, filho dele, é o do `.env.local` e o dos previews. Os papéis
+são esses e não os nomes ao contrário de propósito: o branch padrão da Neon é
+o que não pode ser apagado, e é bom que seja o de produção. Por isso também
+`yarn db:seed` só alcança desenvolvimento — ele apaga os dados da conta antes
+de regravar.
+
+**Variáveis na Vercel:** `DATABASE_URL` e `AUTH_SECRET`, este último **gerado
+separado** do de desenvolvimento. `SEED_EMAIL` e `SEED_SENHA` não vão — o seed
+não roda lá, e senha não fica guardada onde não é usada. `AUTH_URL` não é
+necessária: na Vercel o Auth.js descobre o endereço sozinho.
+
+**Duas coisas que o build precisa fazer sozinho**, e que quebrariam o deploy
+se faltassem:
+
+- `postinstall: prisma generate` — o `@prisma/client` 7 não gera mais o client
+  na instalação. Localmente passa despercebido porque ele já está em
+  `node_modules`; na Vercel, que instala do zero, não existiria.
+- `build: prisma migrate deploy && next build` — sem isso o deploy publicaria
+  código novo sobre um banco velho. É a única forma de a migração chegar em
+  produção, já que nada mais toca naquele banco.
+
+#### Mudança de schema, passo a passo
+
+1. `yarn db:migrate` cria o arquivo em `prisma/migrations/` e aplica no
+   desenvolvimento.
+2. **Antes de juntar na `main`**, criar na Neon um branch a partir de
+   `production` chamado `backup-AAAA-MM-DD`. É instantâneo e serve de foto: se
+   a migração estragar algo, os dados de antes continuam lá.
+3. Conferir no preview, com o banco de desenvolvimento.
+4. Juntar na `main`. O build aplica a migração e publica.
+
+O passo 2 existe porque `migrate deploy` roda sozinho: uma migração destrutiva
+não pede confirmação a ninguém.
+
 ---
 
 ## 6. Planejamento futuro
@@ -667,14 +708,7 @@ viável.
 | 2 | App **lê** do servidor (5.1, 5.2) | ✅ feito |
 | 3 | App **grava** por Server Actions (5.4, 5.5) | ✅ feito |
 | 4 | Auth.js v5 (e-mail e senha) (5.6) | ✅ feito |
-| 5 | Deploy na Vercel | pendente |
-
-**Etapa 5 — deploy.** O que já se sabe que ela precisa: `DATABASE_URL` e
-`AUTH_SECRET` como variáveis de ambiente na Vercel (o `SEED_EMAIL`/`SEED_SENHA`
-só servem ao seed, que não roda em produção), e a decisão de o banco de
-produção ser o mesmo projeto Neon ou um branch dele. `bcryptjs` e o driver
-adapter do Neon já foram escolhidos pensando neste momento — nenhum binário
-nativo para compilar, nenhuma conexão persistente para manter.
+| 5 | Deploy na Vercel (5.7) | ✅ feito |
 
 **Etapa 2 — leitura. Feita.** O provider vivia no *layout* de `/app`, que é
 client e fica **acima** da página: dado buscado na página não subia até ele.
