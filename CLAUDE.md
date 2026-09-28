@@ -84,8 +84,12 @@ estrutura.**
 
 ## Onde estamos
 
-Etapas 0 (período), 1 (banco), 2 (leitura), 3 (escrita) e 4 (auth) **feitas**.
-Falta: 5 — deploy. Detalhe em 6.1 do ARCHITECTURE.
+Etapas 0 a 5 **feitas** — o app está no ar na Vercel, usado com dados reais.
+Detalhe em 6.1; o deploy e o fluxo de migração estão em 5.7 do ARCHITECTURE.
+
+**Mudou o schema?** `yarn db:migrate` local, branch de backup na Neon a partir
+de `production`, conferir no preview, e só então juntar na `main` — o build
+roda `prisma migrate deploy` sozinho.
 
 `AUTH_SECRET` é obrigatório no `.env.local` — sem ele o login não assina nada.
 
