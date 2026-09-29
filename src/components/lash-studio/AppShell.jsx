@@ -93,7 +93,7 @@ const SHEET_COMPONENTS = {
   material: MaterialSheet,
 };
 
-/** "Nicole Prado" → "Nicole". O cabeçalho cumprimenta, não identifica. */
+/** "Nicole Ramos" → "Nicole". O cabeçalho cumprimenta, não identifica. */
 const primeiroNome = (nome) => nome.trim().split(" ")[0];
 
 export function AppShell() {
