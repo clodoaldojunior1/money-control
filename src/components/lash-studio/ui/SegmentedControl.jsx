@@ -3,9 +3,10 @@
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
 
-export function SegmentedControl({ value, onChange, options, fullWidth = false }) {
+export function SegmentedControl({ value, onChange, options, fullWidth = false, ...props }) {
   return (
     <ToggleButtonGroup
+      {...props}
       value={value}
       exclusive
       onChange={(_, next) => next != null && onChange(next)}

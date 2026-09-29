@@ -34,10 +34,11 @@ const agendamentoDeRegistro = (a) => ({ cliente: a.name, servico: a.service, dat
 
 const comId = (registro, converter) => ({ id: registro.id, ...converter(registro) });
 
-// Qual sheet o FAB abre em cada aba. Na Home o padrão é registrar entrada —
-// é a ação mais frequente de quem acabou de atender uma cliente.
+// Qual sheet o FAB abre em cada aba. Na Home ele pergunta: dali se lança tanto
+// o que entrou quanto o que saiu, e escolher um por padrão obrigaria a trocar
+// de aba para registrar o outro.
 const SHEET_POR_ABA = {
-  home: "entrada",
+  home: "movimentacao",
   entradas: "entrada",
   gastos: "gasto",
   materiais: "material",
