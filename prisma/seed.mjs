@@ -44,7 +44,7 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email },
     update: { senhaHash },
-    create: { email, senhaHash, nome: "Manuela Reis", studio: "Studio Manu Lashes" },
+    create: { email, senhaHash, nome: "Nicole", studio: "Studio Manu Lashes" },
   });
 
   // Idempotente: limpa o que já existe desta conta antes de regravar.
