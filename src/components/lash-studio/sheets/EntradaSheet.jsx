@@ -22,7 +22,14 @@ const toDefaults = (entrada, hoje) => (entrada
   ? { client: entrada.client, service: entrada.service, value: String(entrada.value), method: entrada.method, date: entrada.iso }
   : { client: "", service: "Volume russo", value: "", method: "Pix", date: hoje });
 
-export function EntradaSheet() {
+/**
+ * Os campos e os botões, sem a moldura.
+ *
+ * Existe separado porque o sheet de movimentação (o FAB da Início) mostra este
+ * mesmo formulário dentro da própria moldura, com um seletor em cima — aninhar
+ * o `EntradaSheet` inteiro traria uma segunda alça e um segundo título.
+ */
+export function FormularioEntrada() {
   const { custom } = useTheme();
   const t = custom.tokens;
   const { editing, isEdit, saveEntrada, removeEntrada, closeSheet, hoje, salvando } = useAppData();
@@ -30,57 +37,67 @@ export function EntradaSheet() {
   const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
   return (
-    <SheetFrame title={isEdit ? "Editar entrada" : "Nova entrada"} onClose={closeSheet}>
-      <FormMoneyField
-        control={control}
-        name="value"
-        size="lg"
-        autoFocus
-        rules={{
-          required: "Informe um valor maior que zero.",
-          validate: (v) => parseFloat(v) > 0 || "Informe um valor maior que zero.",
-        }}
-      />
+    <>
+    <FormMoneyField
+      control={control}
+      name="value"
+      size="lg"
+      autoFocus
+      rules={{
+        required: "Informe um valor maior que zero.",
+        validate: (v) => parseFloat(v) > 0 || "Informe um valor maior que zero.",
+      }}
+    />
 
-      <FormTextField
-        control={control}
-        name="client"
-        label="Cliente"
-        placeholder="Nome da cliente"
-        reserveHelperText
-        rules={{ validate: (v) => v.trim().length > 0 || "Informe a cliente." }}
-      />
+    <FormTextField
+      control={control}
+      name="client"
+      label="Cliente"
+      placeholder="Nome da cliente"
+      reserveHelperText
+      rules={{ validate: (v) => v.trim().length > 0 || "Informe a cliente." }}
+    />
 
-      <FormSelectField control={control} name="service" label="Serviço realizado" options={SERVICES} />
+    <FormSelectField control={control} name="service" label="Serviço realizado" options={SERVICES} />
 
-      <FormSegmented control={control} name="method" label="Forma de pagamento" options={METHOD_OPTIONS} />
+    <FormSegmented control={control} name="method" label="Forma de pagamento" options={METHOD_OPTIONS} />
 
-      <FormTextField
-        control={control}
-        name="date"
-        label="Data do recebimento"
-        type="date"
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
+    <FormTextField
+      control={control}
+      name="date"
+      label="Data do recebimento"
+      type="date"
+      slotProps={{ inputLabel: { shrink: true } }}
+    />
 
-      <Stack direction="row" spacing={1.25} sx={{ mt: 0.5 }}>
-        {isEdit && (
-          <Button
-            variant="outlined"
-            color="error"
-            onClick={removeEntrada}
-            disabled={salvando}
-            aria-label="Excluir entrada"
-            sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
-          >
-            <DeleteOutlineRoundedIcon />
-          </Button>
-        )}
-        <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSubmit(saveEntrada)} disabled={salvando} sx={{ flex: 2 }}>
-          {salvando ? "Salvando…" : "Salvar entrada"}
+    <Stack direction="row" spacing={1.25} sx={{ mt: 0.5 }}>
+      {isEdit && (
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={removeEntrada}
+          disabled={salvando}
+          aria-label="Excluir entrada"
+          sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
+        >
+          <DeleteOutlineRoundedIcon />
         </Button>
-      </Stack>
+      )}
+      <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
+      <Button variant="contained" onClick={handleSubmit(saveEntrada)} disabled={salvando} sx={{ flex: 2 }}>
+        {salvando ? "Salvando…" : "Salvar entrada"}
+      </Button>
+    </Stack>
+    </>
+  );
+}
+
+export function EntradaSheet() {
+  const { isEdit, closeSheet } = useAppData();
+
+  return (
+    <SheetFrame title={isEdit ? "Editar entrada" : "Nova entrada"} onClose={closeSheet}>
+      <FormularioEntrada />
     </SheetFrame>
   );
 }
