@@ -51,7 +51,7 @@ estrutura.**
   `/login` quando não há sessão. `/cadastro` valida mas recusa: a conta é do
   dono, criada pelo seed
 - **Produção tem dados reais** (branch `production` da Neon; o `.env.local`
-  aponta para `desenvolvimento`). Ferramenta destrutiva de desenvolvimento —
+  aponta para `development`). Ferramenta destrutiva de desenvolvimento —
   como "Restaurar dados de exemplo" — fica atrás de `NODE_ENV` **no cliente e
   na Server Action**: esconder o botão não basta, action é endpoint. Push na
   `main` faz deploy de produção; mudança vai por branch e preview

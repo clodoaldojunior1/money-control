@@ -638,7 +638,7 @@ qualquer outro branch gera um preview com URL própria. Mudança vai por branch,
 é conferida no preview e só então é juntada.
 
 **Dois bancos, um projeto na Neon.** O branch `production` é o de verdade; o
-`desenvolvimento`, filho dele, é o do `.env.local` e o dos previews. Os papéis
+`development`, filho dele, é o do `.env.local` e o dos previews. Os papéis
 são esses e não os nomes ao contrário de propósito: o branch padrão da Neon é
 o que não pode ser apagado, e é bom que seja o de produção. Por isso também
 `yarn db:seed` só alcança desenvolvimento — ele apaga os dados da conta antes
