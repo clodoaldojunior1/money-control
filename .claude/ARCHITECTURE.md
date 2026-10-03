@@ -679,6 +679,12 @@ botão já é o Desfazer, e dois botões num toque viram escolha difícil. Ele
 aparece quando o valor difere do padrão e some depois de aceito. Na agenda não
 existe: agendamento é previsão, e o padrão deve nascer do que foi cobrado.
 
+E é um **botão**, não um texto clicável: precisa parecer tocável, ter alvo de
+dedo e **dizer o valor** — "fixar este valor" não conta o que vai acontecer,
+"atualizar o preço padrão de Volume russo para R$ 200,00" conta. O estado
+guarda o valor fixado, e não um sim/não, para o convite voltar sozinho se ela
+mudar o preço outra vez no mesmo formulário.
+
 **A migração foi escrita à mão** (`20261003120000_catalogo_de_servicos`). O
 Prisma recusou gerá-la — proporia apagar a coluna e criar a nova `NOT NULL`,
 o que falharia com 48 registros existentes. A ordem correta cria, preenche,
