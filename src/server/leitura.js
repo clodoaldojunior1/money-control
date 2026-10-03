@@ -28,7 +28,11 @@ const deEntrada = (e) => {
     id: e.id,
     kind: "in",
     client: e.cliente,
-    service: e.servico,
+    // `service` continua sendo o **nome**, que é o que as listas mostram; o id
+    // vai junto porque o formulário escolhe pelo catálogo. Foi assim que o
+    // catálogo entrou sem nenhum componente de lista mudar.
+    service: e.servico.nome,
+    servicoId: e.servicoId,
     method: e.metodo,
     iso,
     date: diaCurto(iso),
@@ -70,12 +74,25 @@ const deMaterial = (m) => {
 const deAgendamento = (a) => ({
   id: a.id,
   name: a.cliente,
-  service: a.servico,
+  service: a.servico.nome,
+  servicoId: a.servicoId,
   date: isoDeDataUTC(a.data),
   hour: a.hora,
   dur: a.duracao,
   status: a.status,
   value: valor(a.valor),
+});
+
+/**
+ * O catálogo. `precoPadrao` é opcional e, quando existe, é Decimal — então
+ * passa pela mesma conversão do resto do dinheiro.
+ */
+const deServico = (s) => ({
+  id: s.id,
+  nome: s.nome,
+  precoPadrao: s.precoPadrao == null ? null : valor(s.precoPadrao),
+  duracaoPadrao: s.duracaoPadrao,
+  ativo: s.ativo,
 });
 
 /**
@@ -94,11 +111,16 @@ export async function carregarDados() {
   const usuario = await requireUser();
   const doDono = { where: { userId: usuario.id } };
 
-  const [entradas, gastos, materiais, agendamentos] = await Promise.all([
-    prisma.entrada.findMany({ ...doDono, orderBy: { data: "desc" } }),
+  // `include` do serviço porque a lista mostra o nome. É um join, não uma
+  // consulta a mais por linha.
+  const comServico = { include: { servico: { select: { nome: true } } } };
+
+  const [entradas, gastos, materiais, agendamentos, servicos] = await Promise.all([
+    prisma.entrada.findMany({ ...doDono, ...comServico, orderBy: { data: "desc" } }),
     prisma.gasto.findMany({ ...doDono, orderBy: { data: "desc" } }),
     prisma.material.findMany({ ...doDono, orderBy: { compradoEm: "desc" } }),
-    prisma.agendamento.findMany({ ...doDono, orderBy: [{ data: "asc" }, { hora: "asc" }] }),
+    prisma.agendamento.findMany({ ...doDono, ...comServico, orderBy: [{ data: "asc" }, { hora: "asc" }] }),
+    prisma.servico.findMany({ ...doDono, orderBy: { nome: "asc" } }),
   ]);
 
   return {
@@ -106,6 +128,9 @@ export async function carregarDados() {
     // aparece na UI atravessa — hash de senha e e-mail não têm o que fazer no
     // cliente.
     conta: { nome: usuario.nome, studio: usuario.studio },
+    // O catálogo inteiro, inclusive os desativados: uma lista antiga pode
+    // mostrar um serviço que ela não oferece mais, e o nome tem que aparecer.
+    servicos: servicos.map(deServico),
     items: [...entradas.map(deEntrada), ...gastos.map(deGasto)],
     materiais: materiais.map(deMaterial),
     agendamentos: agendamentos.map(deAgendamento),

@@ -70,6 +70,22 @@ export function hora(valor, campo = "Horário") {
 }
 
 /**
+ * O id de um serviço do próprio usuário.
+ *
+ * A chave estrangeira garante que o serviço **existe**, não que ele é **dela**.
+ * Sem esta checagem, um id de outra conta passaria pelo banco sem reclamar — é
+ * a mesma razão de todo `where` daqui levar `userId` junto.
+ */
+export async function servicoDoUsuario(prisma, servicoId, userId) {
+  const id = String(servicoId ?? "").trim();
+  if (!id) throw new DadoInvalido("Escolha um serviço.");
+
+  const servico = await prisma.servico.findFirst({ where: { id, userId }, select: { id: true } });
+  if (!servico) throw new DadoInvalido("Serviço não encontrado.");
+  return servico.id;
+}
+
+/**
  * Envelope de toda ação: devolve `{ erro }` em vez de estourar.
  *
  * Uma Server Action que lança vira erro de runtime no cliente, e em produção a

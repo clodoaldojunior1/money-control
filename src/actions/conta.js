@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "../lib/prisma";
 import { requireUser } from "../server/usuario";
 import { dadosDeExemplo } from "../server/exemplo";
+import { randomUUID } from "node:crypto";
 import { comResultado, dia, diaISO, dinheiro, hora, inteiro, texto, umDe } from "../server/escrita";
 
 /**
@@ -25,8 +26,14 @@ import { comResultado, dia, diaISO, dinheiro, hora, inteiro, texto, umDe } from 
 const TIPOS = ["trabalho", "pessoal"];
 const SUBTIPOS = ["fixo", "variavel", "superfluo", "necessario"];
 
+const servico = (s) => ({
+  id: s.id, nome: texto(s.nome, "Nome do serviço"), ativo: s.ativo !== false,
+  precoPadrao: s.precoPadrao == null ? null : dinheiro(s.precoPadrao, "Preço padrão"),
+  duracaoPadrao: s.duracaoPadrao ?? null,
+});
+
 const entrada = (e) => ({
-  id: e.id, cliente: texto(e.cliente, "Nome da cliente"), servico: texto(e.servico, "Serviço"),
+  id: e.id, cliente: texto(e.cliente, "Nome da cliente"), servicoId: texto(e.servicoId, "Serviço"),
   metodo: texto(e.metodo, "Forma de pagamento"), data: dia(e.data), valor: dinheiro(e.valor),
 });
 
@@ -44,7 +51,7 @@ const material = (m) => ({
 });
 
 const agendamento = (a) => ({
-  id: a.id, cliente: texto(a.cliente, "Nome da cliente"), servico: texto(a.servico, "Serviço"),
+  id: a.id, cliente: texto(a.cliente, "Nome da cliente"), servicoId: texto(a.servicoId, "Serviço"),
   data: dia(a.data), hora: hora(a.hora), duracao: texto(a.duracao, "Duração"),
   status: texto(a.status, "Status"), valor: dinheiro(a.valor, "Valor do serviço"),
 });
@@ -63,8 +70,13 @@ const agendamento = (a) => ({
 const PERMITIDO = process.env.NODE_ENV !== "production";
 const RECUSA = { erro: "Restaurar dados de exemplo só existe em desenvolvimento." };
 
-/** Apaga tudo da conta e grava o conjunto recebido, já no formato do banco. */
-async function regravar(userId, { entradas, gastos, materiais, agendamentos }) {
+/**
+ * Apaga tudo da conta e grava o conjunto recebido, já no formato do banco.
+ *
+ * Os serviços saem por último e entram primeiro: a relação é Restrict, então o
+ * banco recusa apagar um serviço antes dos lançamentos que apontam para ele.
+ */
+async function regravar(userId, { servicos, entradas, gastos, materiais, agendamentos }) {
   const comDono = (lista) => lista.map((r) => ({ ...r, userId }));
 
   await prisma.$transaction([
@@ -72,6 +84,8 @@ async function regravar(userId, { entradas, gastos, materiais, agendamentos }) {
     prisma.gasto.deleteMany({ where: { userId } }),
     prisma.material.deleteMany({ where: { userId } }),
     prisma.agendamento.deleteMany({ where: { userId } }),
+    prisma.servico.deleteMany({ where: { userId } }),
+    prisma.servico.createMany({ data: comDono(servicos) }),
     prisma.entrada.createMany({ data: comDono(entradas) }),
     prisma.gasto.createMany({ data: comDono(gastos) }),
     prisma.material.createMany({ data: comDono(materiais) }),
@@ -86,7 +100,21 @@ export async function restaurarExemplo(hoje) {
   if (!PERMITIDO) return RECUSA;
   return comResultado(async () => {
     const usuario = await requireUser();
-    await regravar(usuario.id, dadosDeExemplo(diaISO(hoje)));
+    const exemplo = dadosDeExemplo(diaISO(hoje));
+
+    // Os ids do catálogo nascem aqui, antes da transação, para os lançamentos
+    // já irem apontando — sem depender de linhas inseridas na mesma transação.
+    const servicos = exemplo.servicos.map((s) => ({ ...s, id: randomUUID() }));
+    const idPorNome = new Map(servicos.map((s) => [s.nome, s.id]));
+    const comServico = (lista) => lista.map(({ servico, ...r }) => ({ ...r, servicoId: idPorNome.get(servico) }));
+
+    await regravar(usuario.id, {
+      servicos,
+      entradas: comServico(exemplo.entradas),
+      gastos: exemplo.gastos,
+      materiais: exemplo.materiais,
+      agendamentos: comServico(exemplo.agendamentos),
+    });
     return { ok: true };
   });
 }
@@ -97,6 +125,7 @@ export async function substituirDados(retrato) {
   return comResultado(async () => {
     const usuario = await requireUser();
     await regravar(usuario.id, {
+      servicos: (retrato.servicos ?? []).map(servico),
       entradas: (retrato.entradas ?? []).map(entrada),
       gastos: (retrato.gastos ?? []).map(gasto),
       materiais: (retrato.materiais ?? []).map(material),
