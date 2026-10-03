@@ -44,6 +44,7 @@ import { EntradasTab } from "./tabs/EntradasTab";
 import { MateriaisTab } from "./tabs/MateriaisTab";
 
 import { GastoSheet } from "./sheets/GastoSheet";
+import { MovimentacaoSheet } from "./sheets/MovimentacaoSheet";
 import { AgendaSheet } from "./sheets/AgendaSheet";
 import { EntradaSheet } from "./sheets/EntradaSheet";
 import { MaterialSheet } from "./sheets/MaterialSheet";
@@ -70,6 +71,7 @@ const MENU_ITEMS = [
 // Chaveado pelo tipo de sheet (não pela aba) para não divergir do
 // SHEET_POR_ABA que define a ação no AppDataProvider.
 const FAB_LABEL = {
+  movimentacao: "Nova movimentação",
   entrada: "Registrar entrada",
   gasto: "Adicionar gasto",
   material: "Novo material",
@@ -87,6 +89,7 @@ const TAB_COMPONENTS = {
 };
 
 const SHEET_COMPONENTS = {
+  movimentacao: MovimentacaoSheet,
   gasto: GastoSheet,
   agenda: AgendaSheet,
   entrada: EntradaSheet,

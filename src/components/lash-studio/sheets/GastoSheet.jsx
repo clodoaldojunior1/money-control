@@ -37,7 +37,8 @@ const toDefaults = (gasto, hoje) => (gasto
   ? { valor: String(gasto.value), desc: gasto.title, tipo: gasto.tipo, sub: gasto.sub, data: gasto.iso }
   : { valor: "", desc: "", tipo: "trabalho", sub: "variavel", data: hoje });
 
-export function GastoSheet() {
+/** Os campos e os botões, sem a moldura — ver `FormularioEntrada`. */
+export function FormularioGasto() {
   const { custom } = useTheme();
   const t = custom.tokens;
   const { editing, isEdit, saveGasto, removeGasto, closeSheet, hoje, salvando } = useAppData();
@@ -50,62 +51,72 @@ export function GastoSheet() {
   const tipo = useWatch({ control, name: "tipo" });
 
   return (
-    <SheetFrame title={isEdit ? "Editar gasto" : "Novo gasto"} onClose={closeSheet}>
-      <FormMoneyField
-        control={control}
-        name="valor"
-        size="lg"
-        autoFocus
-        rules={{
-          required: "Informe um valor maior que zero.",
-          validate: (v) => parseFloat(v) > 0 || "Informe um valor maior que zero.",
-        }}
-      />
+    <>
+    <FormMoneyField
+      control={control}
+      name="valor"
+      size="lg"
+      autoFocus
+      rules={{
+        required: "Informe um valor maior que zero.",
+        validate: (v) => parseFloat(v) > 0 || "Informe um valor maior que zero.",
+      }}
+    />
 
-      <FormTextField control={control} name="desc" label="Descrição" placeholder="Ex.: Cola Glue Pro 5ml" />
+    <FormTextField control={control} name="desc" label="Descrição" placeholder="Ex.: Cola Glue Pro 5ml" />
 
-      <FormSegmented
-        control={control}
-        name="tipo"
-        label="Tipo"
-        options={TIPO_OPTIONS}
-        onAfterChange={(next) => setValue("sub", SUB_PADRAO[next])}
-      />
+    <FormSegmented
+      control={control}
+      name="tipo"
+      label="Tipo"
+      options={TIPO_OPTIONS}
+      onAfterChange={(next) => setValue("sub", SUB_PADRAO[next])}
+    />
 
-      <FormOptionGroup
-        control={control}
-        name="sub"
-        label={tipo === "trabalho" ? "Natureza do gasto de trabalho" : "Natureza do gasto pessoal"}
-        options={SUB_OPTIONS[tipo]}
-        direction="row"
-      />
+    <FormOptionGroup
+      control={control}
+      name="sub"
+      label={tipo === "trabalho" ? "Natureza do gasto de trabalho" : "Natureza do gasto pessoal"}
+      options={SUB_OPTIONS[tipo]}
+      direction="row"
+    />
 
-      <FormTextField
-        control={control}
-        name="data"
-        label="Data"
-        type="date"
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
+    <FormTextField
+      control={control}
+      name="data"
+      label="Data"
+      type="date"
+      slotProps={{ inputLabel: { shrink: true } }}
+    />
 
-      <Stack direction="row" spacing={1.25} sx={{ mt: 0.5 }}>
-        {isEdit && (
-          <Button
-            variant="outlined"
-            color="error"
-            onClick={removeGasto}
-            disabled={salvando}
-            aria-label="Excluir gasto"
-            sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
-          >
-            <DeleteOutlineRoundedIcon />
-          </Button>
-        )}
-        <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSubmit(saveGasto)} disabled={salvando} sx={{ flex: 2 }}>
-          {salvando ? "Salvando…" : "Salvar gasto"}
+    <Stack direction="row" spacing={1.25} sx={{ mt: 0.5 }}>
+      {isEdit && (
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={removeGasto}
+          disabled={salvando}
+          aria-label="Excluir gasto"
+          sx={{ px: 1.75, borderColor: alpha(t.danger, alphas.border) }}
+        >
+          <DeleteOutlineRoundedIcon />
         </Button>
-      </Stack>
+      )}
+      <Button variant="outlined" onClick={closeSheet} disabled={salvando} sx={{ flex: 1 }}>Cancelar</Button>
+      <Button variant="contained" onClick={handleSubmit(saveGasto)} disabled={salvando} sx={{ flex: 2 }}>
+        {salvando ? "Salvando…" : "Salvar gasto"}
+      </Button>
+    </Stack>
+    </>
+  );
+}
+
+export function GastoSheet() {
+  const { isEdit, closeSheet } = useAppData();
+
+  return (
+    <SheetFrame title={isEdit ? "Editar gasto" : "Novo gasto"} onClose={closeSheet}>
+      <FormularioGasto />
     </SheetFrame>
   );
 }
