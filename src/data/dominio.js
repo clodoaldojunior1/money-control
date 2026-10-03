@@ -10,14 +10,9 @@
 export const BRL = (n) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
 
-export const SERVICES = [
-  "Volume russo",
-  "Volume brasileiro",
-  "Fox eyes",
-  "Manutenção 21 dias",
-  "Remoção + design",
-  "Efeito híbrido",
-];
+// A lista de serviços saiu daqui: o vocabulário é dela, não nosso. Agora vive
+// no banco, como catálogo por conta (tabela `Servico`), e a lista inicial que
+// uma conta nova recebe está em `src/server/exemplo.js`.
 
 export const DURATIONS = ["1h", "1h30", "2h", "2h30"];
 export const STATUSES = ["Confirmado", "Aguardando sinal", "Concluído"];

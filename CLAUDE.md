@@ -50,6 +50,10 @@ estrutura.**
 - **`requireUser()`** escopa toda leitura e escrita, e redireciona para
   `/login` quando não há sessão. `/cadastro` valida mas recusa: a conta é do
   dono, criada pelo seed
+- **Serviço é catálogo, não texto** (5.7). `Entrada` e `Agendamento` apontam
+  para `Servico`; a borda de leitura segue entregando `service` como nome, e por
+  isso nenhuma lista mudou. Serviço se desativa, nunca se apaga — a relação é
+  `Restrict`. `precoPadrao` é sugestão: o valor cobrado fica no lançamento
 - **Produção tem dados reais** (branch `production` da Neon; o `.env.local`
   aponta para `development`). Ferramenta destrutiva de desenvolvimento —
   como "Restaurar dados de exemplo" — fica atrás de `NODE_ENV` **no cliente e
@@ -77,7 +81,13 @@ estrutura.**
 8. **A mesma armadilha ao contrário no banco:** Prisma devolve `@db.Date` como
    meia-noite **UTC**, então ali quem erra por um dia é o getter *local*. Use
    `isoDeDataUTC`, e só na borda de leitura.
-9. **Erro de hidratação em atributo do `<html>` quase sempre é extensão do
+9. **Mexeu no `schema.prisma`? Reinicie o `yarn dev`.** O client do Prisma é
+   código gerado em `node_modules`, fora do alcance do hot reload: o processo
+   segue com o client antigo em memória. O sintoma não aponta para a causa —
+   `Cannot read properties of undefined (reading 'findMany')` numa tabela que
+   existe. Em produção não acontece: lá cada deploy instala do zero e o
+   `postinstall` gera o client antes do build.
+10. **Erro de hidratação em atributo do `<html>` quase sempre é extensão do
    navegador**, não código. Antes de investigar, abra em aba anônima: se sumir,
    é extensão. O `<html>` já tem `suppressHydrationWarning` por isso — vale só
    para os atributos dele; divergência dentro das páginas continua acusada.
@@ -85,7 +95,7 @@ estrutura.**
 ## Onde estamos
 
 Etapas 0 a 5 **feitas** — o app está no ar na Vercel, usado com dados reais.
-Detalhe em 6.1; o deploy e o fluxo de migração estão em 5.7 do ARCHITECTURE.
+Detalhe em 6.1; o deploy e o fluxo de migração estão em 5.8 do ARCHITECTURE.
 
 **Mudou o schema?** `yarn db:migrate` local, branch de backup na Neon a partir
 de `production`, conferir no preview, e só então juntar na `main` — o build

@@ -10,6 +10,7 @@
  * Next), então este script o importa rodando em Node puro.
  */
 import { config } from "dotenv";
+import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
@@ -47,27 +48,37 @@ async function main() {
     create: { email, senhaHash, nome: "Nicole Ramos", studio: "Studio Nicole Lash" },
   });
 
-  // Idempotente: limpa o que já existe desta conta antes de regravar.
+  // Idempotente: limpa o que já existe desta conta antes de regravar. Os
+  // serviços saem por último: a relação é Restrict, então o banco recusaria
+  // apagar um serviço antes dos lançamentos que apontam para ele.
   await prisma.$transaction([
     prisma.entrada.deleteMany({ where: { userId: user.id } }),
     prisma.gasto.deleteMany({ where: { userId: user.id } }),
     prisma.material.deleteMany({ where: { userId: user.id } }),
     prisma.agendamento.deleteMany({ where: { userId: user.id } }),
+    prisma.servico.deleteMany({ where: { userId: user.id } }),
   ]);
 
-  const { entradas, gastos, materiais, agendamentos } = dadosDeExemplo(isoDeData(new Date()));
+  const { servicos, entradas, gastos, materiais, agendamentos } = dadosDeExemplo(isoDeData(new Date()));
   const comDono = (lista) => lista.map((r) => ({ ...r, userId: user.id }));
 
+  // Os ids saem daqui, antes da transação, para os lançamentos já nascerem
+  // apontando — sem depender do que a transação acabou de inserir.
+  const catalogo = servicos.map((s) => ({ ...s, id: randomUUID(), userId: user.id }));
+  const idDoServico = new Map(catalogo.map((s) => [s.nome, s.id]));
+  const comServico = (lista) => lista.map(({ servico, ...r }) => ({ ...r, userId: user.id, servicoId: idDoServico.get(servico) }));
+
   await prisma.$transaction([
-    prisma.entrada.createMany({ data: comDono(entradas) }),
+    prisma.servico.createMany({ data: catalogo }),
+    prisma.entrada.createMany({ data: comServico(entradas) }),
     prisma.gasto.createMany({ data: comDono(gastos) }),
     prisma.material.createMany({ data: comDono(materiais) }),
-    prisma.agendamento.createMany({ data: comDono(agendamentos) }),
+    prisma.agendamento.createMany({ data: comServico(agendamentos) }),
   ]);
 
   console.log(
-    `Conta ${email} pronta com ${entradas.length} entradas, ${gastos.length} gastos, ` +
-    `${materiais.length} materiais e ${agendamentos.length} agendamentos.`,
+    `Conta ${email} pronta com ${catalogo.length} serviços, ${entradas.length} entradas, ` +
+    `${gastos.length} gastos, ${materiais.length} materiais e ${agendamentos.length} agendamentos.`,
   );
 }
 

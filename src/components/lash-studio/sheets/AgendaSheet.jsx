@@ -7,27 +7,53 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
-import { SERVICES, DURATIONS, STATUSES } from "../../../data/dominio";
+import { DURATIONS, STATUSES } from "../../../data/dominio";
 import { SheetFrame } from "../ui/SheetFrame";
 import { FormTextField } from "../ui/form/FormTextField";
-import { FormSelectField } from "../ui/form/FormSelectField";
 import { FormMoneyField } from "../ui/form/FormMoneyField";
 import { FormSegmented } from "../ui/form/FormSegmented";
+import { FormServicoField } from "../ui/form/FormServicoField";
 import { FormOptionGroup } from "../ui/form/FormOptionGroup";
 
 const DUR_OPTIONS = DURATIONS.map((d) => ({ value: d, label: d }));
 const STATUS_OPTIONS = STATUSES.map((s) => ({ value: s, label: s }));
 
 const toDefaults = (ag, hoje) => (ag
-  ? { name: ag.name, service: ag.service, date: ag.date, hour: ag.hour, dur: ag.dur, status: ag.status, value: String(ag.value) }
-  : { name: "", service: "Volume russo", date: hoje, hour: "09:00", dur: "2h", status: "Confirmado", value: "" });
+  ? { name: ag.name, service: ag.servicoId, date: ag.date, hour: ag.hour, dur: ag.dur, status: ag.status, value: String(ag.value) }
+  : { name: "", service: "", date: hoje, hour: "09:00", dur: "2h", status: "Confirmado", value: "" });
 
 export function AgendaSheet() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveAgenda, removeAgenda, closeSheet, hoje, salvando } = useAppData();
+  const { editing, isEdit, saveAgenda, removeAgenda, closeSheet, hoje, salvando, servicos } = useAppData();
 
-  const { control, handleSubmit } = useForm({ defaultValues: toDefaults(editing, hoje) });
+  const { control, handleSubmit, getValues, setValue } = useForm({ defaultValues: toDefaults(editing, hoje) });
+
+  /**
+   * Escolher o serviço sugere valor e duração dele — e, como na entrada, nunca
+   * por cima do que já estava preenchido por ela.
+   *
+   * Aqui não há convite para fixar preço: agendamento é previsão, e o preço
+   * padrão deve nascer do que foi de fato cobrado.
+   */
+  function aoTrocarServico(novoId, anteriorId) {
+    const anterior = servicos.find((s) => s.id === anteriorId);
+    const novo = servicos.find((s) => s.id === novoId);
+
+    const valorAtual = getValues("value");
+    const valorVeioDeSugestao = anterior?.precoPadrao != null && valorAtual === String(anterior.precoPadrao);
+    if ((!valorAtual || valorVeioDeSugestao) && novo?.precoPadrao != null) {
+      setValue("value", String(novo.precoPadrao));
+    }
+
+    // A duração nunca está vazia (o formulário abre com "2h"), então o critério
+    // é só não sobrescrever uma escolha diferente da sugestão anterior.
+    const duracaoAtual = getValues("dur");
+    const duracaoVeioDeSugestao = !anterior || duracaoAtual === anterior.duracaoPadrao || duracaoAtual === "2h";
+    if (duracaoVeioDeSugestao && novo?.duracaoPadrao) {
+      setValue("dur", novo.duracaoPadrao);
+    }
+  }
 
   return (
     <SheetFrame title={isEdit ? "Editar agendamento" : "Novo agendamento"} onClose={closeSheet}>
@@ -41,7 +67,13 @@ export function AgendaSheet() {
         rules={{ validate: (v) => v.trim().length > 0 || "Informe o nome da cliente." }}
       />
 
-      <FormSelectField control={control} name="service" label="Serviço" options={SERVICES} />
+      <FormServicoField
+        control={control}
+        name="service"
+        label="Serviço"
+        onAfterChange={aoTrocarServico}
+        rules={{ required: "Escolha ou crie um serviço." }}
+      />
 
       <Stack direction="row" spacing={1.5}>
         <FormTextField

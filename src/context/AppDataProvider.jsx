@@ -20,8 +20,8 @@ const AppDataContext = createContext(null);
  * desfazer — voltar uma edição é regravar o registro anterior, e recriar um
  * excluído é gravá-lo de novo com o mesmo id.
  */
-const entradaDeFormulario = (v) => ({ cliente: v.client, servico: v.service, metodo: v.method, data: v.date, valor: v.value });
-const entradaDeRegistro = (e) => ({ cliente: e.client, servico: e.service, metodo: e.method, data: e.iso, valor: e.value });
+const entradaDeFormulario = (v) => ({ cliente: v.client, servicoId: v.service, metodo: v.method, data: v.date, valor: v.value });
+const entradaDeRegistro = (e) => ({ cliente: e.client, servicoId: e.servicoId, metodo: e.method, data: e.iso, valor: e.value });
 
 const gastoDeFormulario = (v) => ({ titulo: v.desc, tipo: v.tipo, subtipo: v.sub, data: v.data, valor: v.valor });
 const gastoDeRegistro = (g) => ({ titulo: g.title, tipo: g.tipo, subtipo: g.sub, data: g.iso, valor: g.value });
@@ -29,8 +29,8 @@ const gastoDeRegistro = (g) => ({ titulo: g.title, tipo: g.tipo, subtipo: g.sub,
 const materialDeFormulario = (v) => ({ nome: v.name, quantidade: v.qty, unidade: v.unit, custo: v.cost, minimo: v.min, compradoEm: v.date });
 const materialDeRegistro = (m) => ({ nome: m.name, quantidade: m.qty, unidade: m.unit, custo: m.cost, minimo: m.min, compradoEm: m.iso });
 
-const agendamentoDeFormulario = (v) => ({ cliente: v.name, servico: v.service, data: v.date, hora: v.hour, duracao: v.dur, status: v.status, valor: v.value });
-const agendamentoDeRegistro = (a) => ({ cliente: a.name, servico: a.service, data: a.date, hora: a.hour, duracao: a.dur, status: a.status, valor: a.value });
+const agendamentoDeFormulario = (v) => ({ cliente: v.name, servicoId: v.service, data: v.date, hora: v.hour, duracao: v.dur, status: v.status, valor: v.value });
+const agendamentoDeRegistro = (a) => ({ cliente: a.name, servicoId: a.servicoId, data: a.date, hora: a.hour, duracao: a.dur, status: a.status, valor: a.value });
 
 const comId = (registro, converter) => ({ id: registro.id, ...converter(registro) });
 
@@ -61,7 +61,7 @@ const SHEET_POR_ABA = {
  * `hoje` vem do cliente, resolvido antes da montagem (ver `AppRoot`).
  */
 export function AppDataProvider({ children, hoje, dados }) {
-  const { conta, items, materiais, agendamentos } = dados;
+  const { conta, servicos, items, materiais, agendamentos } = dados;
 
   const [periodo, setPeriodo] = useState(() => periodoDe(hoje));
 
@@ -249,6 +249,9 @@ export function AppDataProvider({ children, hoje, dados }) {
    */
   const restaurarExemplo = useCallback(() => {
     const retrato = {
+      // O catálogo vai junto, com os ids: o restaurar apaga os serviços, e sem
+      // eles o desfazer recriaria lançamentos apontando para o que não existe.
+      servicos,
       entradas: items.filter((i) => i.kind === "in").map((e) => comId(e, entradaDeRegistro)),
       gastos: items.filter((i) => i.kind === "out").map((g) => comId(g, gastoDeRegistro)),
       materiais: materiais.map((m) => comId(m, materialDeRegistro)),
@@ -258,7 +261,7 @@ export function AppDataProvider({ children, hoje, dados }) {
     executar(() => restaurarExemploNoBanco(hoje), () => {
       toast("Dados de exemplo restaurados", () => executar(() => substituirDados(retrato)));
     });
-  }, [items, materiais, agendamentos, hoje, toast, executar]);
+  }, [servicos, items, materiais, agendamentos, hoje, toast, executar]);
 
   const contextualSheet = SHEET_POR_ABA[tab] ?? "entrada";
 
@@ -324,7 +327,7 @@ export function AppDataProvider({ children, hoje, dados }) {
     periodo, ehMesAtual,
     irParaPeriodoAnterior, irParaPeriodoSeguinte, voltarAoMesAtual,
 
-    items, materiais, agenda,
+    servicos, items, materiais, agenda,
     ledgerOut, entradas, totals, faturamentoAnterior,
 
     tab, setTab,
@@ -342,7 +345,7 @@ export function AppDataProvider({ children, hoje, dados }) {
   }), [
     money, hoje, conta, periodo, ehMesAtual,
     irParaPeriodoAnterior, irParaPeriodoSeguinte, voltarAoMesAtual,
-    items, materiais, agenda, ledgerOut, entradas, totals, faturamentoAnterior,
+    servicos, items, materiais, agenda, ledgerOut, entradas, totals, faturamentoAnterior,
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
     restaurarExemplo, salvando,

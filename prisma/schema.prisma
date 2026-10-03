@@ -40,21 +40,25 @@ model User {
   gastos       Gasto[]
   materiais    Material[]
   agendamentos Agendamento[]
+  servicos     Servico[]
 }
 
 model Entrada {
-  id      String   @id @default(cuid())
-  userId  String
-  cliente String
-  servico String
-  metodo  String
-  data    DateTime @db.Date
-  valor   Decimal  @db.Decimal(10, 2)
+  id        String   @id @default(cuid())
+  userId    String
+  cliente   String
+  servicoId String
+  metodo    String
+  data      DateTime @db.Date
+  valor     Decimal  @db.Decimal(10, 2)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  servico Servico @relation(fields: [servicoId], references: [id])
 
   // O app sempre consulta "os registros deste usuário neste mês".
   @@index([userId, data])
+  // Para agrupar faturamento por serviço sem varrer a tabela.
+  @@index([servicoId])
 }
 
 model Gasto {
@@ -87,17 +91,49 @@ model Material {
 }
 
 model Agendamento {
-  id      String   @id @default(cuid())
-  userId  String
-  cliente String
-  servico String
-  data    DateTime @db.Date
-  hora    String // "09:00"
-  duracao String // "2h30"
-  status  String // Confirmado | Aguardando sinal | Concluído | Em atendimento
-  valor   Decimal  @db.Decimal(10, 2)
+  id        String   @id @default(cuid())
+  userId    String
+  cliente   String
+  servicoId String
+  data      DateTime @db.Date
+  hora      String // "09:00"
+  duracao   String // "2h30"
+  status    String // Confirmado | Aguardando sinal | Concluído | Em atendimento
+  valor     Decimal  @db.Decimal(10, 2)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  servico Servico @relation(fields: [servicoId], references: [id])
 
   @@index([userId, data])
+  @@index([servicoId])
+}
+
+/// O catálogo de serviços da conta — o vocabulário é dela, não nosso.
+///
+/// Existe para dar autonomia sem perder análise: texto livre a cada lançamento
+/// viraria "Volume russo", "volume russo" e "Vol. russo" como três serviços
+/// diferentes em qualquer gráfico. Apontando para uma linha, renomear propaga
+/// para todo o histórico e a contagem continua honesta.
+///
+/// `precoPadrao` é **sugestão**, nunca verdade: o valor cobrado fica no
+/// lançamento e não é recalculado quando o padrão muda. Promoção não mexe aqui.
+///
+/// Serviço não se apaga, se desativa (`ativo`): sai da lista de escolha e
+/// continua nos relatórios. A relação com os lançamentos é `Restrict` de
+/// propósito — o banco recusa apagar um serviço que tem histórico.
+model Servico {
+  id            String   @id @default(cuid())
+  userId        String
+  nome          String
+  precoPadrao   Decimal? @db.Decimal(10, 2)
+  duracaoPadrao String?
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entradas     Entrada[]
+  agendamentos Agendamento[]
+
+  // Duas vezes o mesmo nome na mesma conta é erro do banco, não bug do app.
+  @@unique([userId, nome])
 }

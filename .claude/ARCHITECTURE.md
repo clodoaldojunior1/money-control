@@ -71,6 +71,7 @@ src/
 │
 ├── actions/                  Server Actions ("use server")
 │   ├── sessao.js             entrar e sair
+│   ├── servicos.js           criar serviço e fixar preço padrão
 │   ├── entradas.js           criar / atualizar / excluir, por entidade
 │   ├── gastos.js             (as três regras comuns estão comentadas aqui)
 │   ├── materiais.js
@@ -95,8 +96,9 @@ src/
     │                         drawer, bottom sheet, snackbar
     ├── tabs/                 uma tela por aba (Home, Gastos, Agenda,
     │                         Entradas, Materiais)
-    ├── sheets/               4 formulários em bottom sheet
-    │                         (Gasto, Agenda, Entrada, Material)
+    ├── sheets/               os formulários em bottom sheet (Gasto, Agenda,
+    │                         Entrada, Material) e o MovimentacaoSheet, que
+    │                         escolhe entre entrada e gasto
     └── ui/                   primitivas reutilizáveis
         │                     (SegmentedControl, SelectableOption,
         │                      MoneyField, SheetFrame, HeaderIconButton)
@@ -104,7 +106,8 @@ src/
                               Form via Controller (FormTextField,
                               FormSelectField, FormSegmented,
                               FormMoneyField, FormOptionGroup,
-                              FormCheckbox, FormPasswordField)
+                              FormCheckbox, FormPasswordField,
+                              FormServicoField)
 ```
 
 ---
@@ -280,7 +283,7 @@ A ação muda conforme a aba, definida em `SHEET_POR_ABA` no `AppDataProvider`:
 
 | Aba | Abre |
 |---|---|
-| Início | **Entrada** — a ação mais frequente de quem acabou de atender |
+| Início | **Pergunta**: um sheet com seletor Entrada / Gasto |
 | Entradas | Entrada |
 | Gastos | Gasto |
 | Materiais | Material |
@@ -288,6 +291,16 @@ A ação muda conforme a aba, definida em `SHEET_POR_ABA` no `AppDataProvider`:
 
 O rótulo do FAB (`FAB_LABEL` no `AppShell`) é chaveado **pelo tipo de sheet**,
 não pela aba, justamente para não divergir desse mapa.
+
+**A Início é a exceção, e por isso pergunta.** Dali se lança tanto o que entrou
+quanto o que saiu; escolher um por padrão obrigava a fechar o sheet e trocar de
+aba para registrar o outro. O `MovimentacaoSheet` resolve com um seletor —
+`SegmentedControl`, o mesmo componente que o formulário de gasto usa para
+Trabalho/Pessoal, em vez de inventar um menu flutuante só para esta tela.
+
+Para isso, `FormularioEntrada` e `FormularioGasto` moram **fora** das suas
+molduras: o sheet de movimentação desenha uma moldura só e troca o formulário
+dentro dela. Aninhar os sheets inteiros traria duas alças e dois títulos.
 
 ### 3.7 Período: a unidade de escopo do app
 
@@ -631,7 +644,52 @@ deixava uma conta autenticada exibindo o nome de outra pessoa. A conta viaja
 junto com os dados, em `carregarDados` — só o que aparece na tela: hash e
 e-mail não atravessam.
 
-### 5.7 Deploy e migrações
+### 5.7 O catálogo de serviços
+
+O serviço era texto solto em `Entrada` e `Agendamento`, e a lista de opções
+vivia no nosso código. Isso tirava a autonomia dela — só fazia o que estava
+previsto — e texto livre no lugar teria destruído qualquer análise: "Volume
+russo", "volume russo" e "Vol. russo" contariam como três serviços num gráfico.
+
+**A saída é dar liberdade para criar o vocabulário, não para digitar qualquer
+coisa a cada lançamento.** Os lançamentos apontam para uma linha de `Servico`,
+então renomear propaga para todo o histórico e a contagem continua honesta.
+
+Decisões que ficaram gravadas no modelo:
+
+- **Serviço não se apaga, se desativa** (`ativo`). A relação é `Restrict`: o
+  banco **recusa** apagar um serviço com histórico. Desativado some da lista de
+  escolha, continua nos relatórios, e segue aparecendo no formulário de um
+  lançamento antigo que o use — senão editar aquele registro trocaria o serviço
+  dele sem ninguém pedir.
+- **`precoPadrao` é sugestão, nunca verdade.** O valor cobrado mora no
+  lançamento e não é recalculado quando o padrão muda: promoção não reescreve o
+  passado.
+- **Criar é idempotente.** Quem chama é o campo do formulário, onde repetir um
+  nome que já existe é acidente comum. Recusar faria a usuária corrigir algo
+  que, para ela, estava certo — então a ação devolve o serviço existente. A
+  comparação ignora caixa e espaços; o nome é gravado como ela digitou.
+
+**O preço nunca passa por cima do que foi digitado.** Ao trocar de serviço, o
+campo só é preenchido se estiver vazio ou se o que está lá foi a sugestão do
+serviço anterior.
+
+**O convite para fixar um novo padrão mora no sheet, não no snackbar.** Lá o
+botão já é o Desfazer, e dois botões num toque viram escolha difícil. Ele
+aparece quando o valor difere do padrão e some depois de aceito. Na agenda não
+existe: agendamento é previsão, e o padrão deve nascer do que foi cobrado.
+
+**A migração foi escrita à mão** (`20261003120000_catalogo_de_servicos`). O
+Prisma recusou gerá-la — proporia apagar a coluna e criar a nova `NOT NULL`,
+o que falharia com 48 registros existentes. A ordem correta cria, preenche,
+trava e só então apaga; o `SET NOT NULL` antes do `DROP COLUMN` é a rede, que
+derruba a migração inteira em vez de perder ligação em silêncio. O agrupamento
+ignora caixa, então variações de grafia já existentes viram um serviço só.
+
+Os ids do backfill saem de `gen_random_uuid()` porque ali não há código
+rodando, só SQL — formato diferente do cuid do resto, e invisível para o app.
+
+### 5.8 Deploy e migrações
 
 Vercel ligada ao GitHub: **push na `main` publica em produção**, push em
 qualquer outro branch gera um preview com URL própria. Mudança vai por branch,
@@ -708,7 +766,7 @@ viável.
 | 2 | App **lê** do servidor (5.1, 5.2) | ✅ feito |
 | 3 | App **grava** por Server Actions (5.4, 5.5) | ✅ feito |
 | 4 | Auth.js v5 (e-mail e senha) (5.6) | ✅ feito |
-| 5 | Deploy na Vercel (5.7) | ✅ feito |
+| 5 | Deploy na Vercel (5.8) | ✅ feito |
 
 **Etapa 2 — leitura. Feita.** O provider vivia no *layout* de `/app`, que é
 client e fica **acima** da página: dado buscado na página não subia até ele.
@@ -782,6 +840,11 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
   por causa de extensões do navegador) cobre esse caso também
 - **PWA de fato** — manifest, service worker, instalação. Hoje é "mobile-first",
   não instalável
+- **Gerenciar serviços** — hoje ela cria pelo formulário, mas renomear e
+  desativar só pelo banco. A tela mora bem dentro de Configurações (6.3), e o
+  modelo já suporta as duas operações
+- **Gráfico de serviços mais prestados** — era o motivo de estruturar o
+  catálogo (5.7). Com o dado amarrado, é agrupar por `servicoId`
 - **Resolver de schema (zod/yup)** — segue em aberto de propósito: a etapa 3
   validou no servidor à mão (5.4) para não misturar duas decisões num commit
   só. A validação do formulário usa regras nativas do RHF; só vale trazer um

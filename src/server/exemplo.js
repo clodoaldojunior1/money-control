@@ -24,9 +24,14 @@ const NOMES = [
   "Vitória Campos", "Helena Braga", "Isadora Pires", "Nathália Rocha",
 ];
 
+// nome, preço padrão, duração padrão — o catálogo de exemplo.
 const SERVICOS = [
-  ["Volume russo", 260], ["Manutenção 21 dias", 140], ["Fox eyes", 280],
-  ["Volume brasileiro", 240], ["Remoção + design", 110], ["Efeito híbrido", 220],
+  ["Volume russo", 260, "2h30"],
+  ["Manutenção 21 dias", 140, "1h30"],
+  ["Fox eyes", 280, "2h"],
+  ["Volume brasileiro", 240, "2h"],
+  ["Remoção + design", 110, "1h"],
+  ["Efeito híbrido", 220, "2h"],
 ];
 
 const METODOS = ["Pix", "Cartão", "Pix", "Dinheiro"];
@@ -99,5 +104,9 @@ export function dadosDeExemplo(hoje) {
     { cliente: "Aline Duarte", servico: "Volume brasileiro", hora: "18:00", duracao: "2h", status: "Aguardando sinal", valor: 240, data: hojeSemHora },
   ];
 
-  return { entradas, gastos, materiais, agendamentos };
+  // Os lançamentos citam o serviço pelo **nome**; quem grava resolve o id.
+  // Assim este módulo continua puro, sem saber que existe banco.
+  const servicos = SERVICOS.map(([nome, precoPadrao, duracaoPadrao]) => ({ nome, precoPadrao, duracaoPadrao }));
+
+  return { servicos, entradas, gastos, materiais, agendamentos };
 }
