@@ -94,8 +94,10 @@ estrutura.**
 
 ## Onde estamos
 
-Etapas 0 a 5 **feitas** — o app está no ar na Vercel, usado com dados reais.
-Detalhe em 6.1; o deploy e o fluxo de migração estão em 5.8 do ARCHITECTURE.
+Etapas 0 a 5 **feitas** — o app está no ar na Vercel, usado todo dia com dados
+reais. Detalhe em 6.1; o deploy e o fluxo de migração estão em 5.8 do
+ARCHITECTURE. Depois delas entraram: o FAB da Início perguntando entrada ou
+gasto (3.6) e o catálogo de serviços (5.7).
 
 **Mudou o schema?** `yarn db:migrate` local, branch de backup na Neon a partir
 de `production`, conferir no preview, e só então juntar na `main` — o build
@@ -103,9 +105,31 @@ roda `prisma migrate deploy` sozinho.
 
 `AUTH_SECRET` é obrigatório no `.env.local` — sem ele o login não assina nada.
 
-Banco: projeto **"Studio de Controle"** na Neon. Comandos `yarn db:migrate`,
-`db:seed`, `db:studio`. Segredos em `.env.local` (fora do git); o template sem
-valores é o `.env.example`.
+### Onde cada coisa mora
+
+| | |
+|---|---|
+| Código | `github.com/clodoaldojunior1/money-control`, branch `main` |
+| Produção | Vercel; push na `main` publica |
+| Banco | Neon, projeto **"Studio de Controle"** |
+| Branches da Neon | `production` (real) · `development` (o do `.env.local` e dos previews) · `backup-AAAA-MM-DD` (criados antes de migração) |
+| Variáveis | `DATABASE_URL` e `AUTH_SECRET`, um valor por ambiente na Vercel. `SEED_EMAIL`/`SEED_SENHA` só existem local |
+
+Comandos de banco: `yarn db:migrate`, `db:seed`, `db:studio`. Segredos em
+`.env.local` (fora do git); o template sem valores é o `.env.example`.
+
+### Próximos passos
+
+Nada em andamento. Candidatos, com o motivo, em 6.4 do ARCHITECTURE:
+
+- **Configurações** — trocar nome, studio e senha pela tela. Hoje isso exige SQL
+  no painel da Neon, e já deu trabalho duas vezes
+- **Busca por texto** nas listas — não toca no banco e é o que ela sente no
+  primeiro dia
+- **Gerenciar serviços** (renomear, desativar) e o **gráfico de serviços**, que
+  foi o motivo de estruturar o catálogo
+- **Método de pagamento no gasto** — para conciliar com o extrato; exige
+  migração
 
 ## Verificação
 

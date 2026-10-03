@@ -6,6 +6,8 @@ import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import PriceChangeRoundedIcon from "@mui/icons-material/PriceChangeRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import { useTheme, alpha } from "@mui/material/styles";
 import { alphas } from "../../../theme/tokens";
 import { useAppData } from "../../../context/AppDataProvider";
@@ -35,7 +37,7 @@ const toDefaults = (entrada, hoje) => (entrada
 export function FormularioEntrada() {
   const { custom } = useTheme();
   const t = custom.tokens;
-  const { editing, isEdit, saveEntrada, removeEntrada, closeSheet, hoje, salvando, servicos } = useAppData();
+  const { editing, isEdit, saveEntrada, removeEntrada, closeSheet, hoje, salvando, servicos, money } = useAppData();
 
   const { control, handleSubmit, getValues, setValue } = useForm({ defaultValues: toDefaults(editing, hoje) });
 
@@ -43,7 +45,9 @@ export function FormularioEntrada() {
   const [servicoId, valorDigitado] = useWatch({ control, name: ["service", "value"] });
   const servico = servicos.find((s) => s.id === servicoId) ?? null;
 
-  const [fixado, setFixado] = useState(false);
+  // Guarda o **valor** fixado, não um sim/não: assim, se ela mudar o preço de
+  // novo logo em seguida, o convite volta sozinho em vez de ficar escondido.
+  const [precoFixado, setPrecoFixado] = useState(null);
 
   /**
    * Ao trocar de serviço, sugere o preço dele — mas **nunca por cima do que ela
@@ -59,16 +63,18 @@ export function FormularioEntrada() {
     if ((!atual || veioDeSugestao) && novo?.precoPadrao != null) {
       setValue("value", String(novo.precoPadrao));
     }
-    setFixado(false);
+    setPrecoFixado(null);
   }
 
   // O convite aparece quando o valor difere do padrão — e some depois de aceito.
   // Ele mora aqui, e não no snackbar, porque lá o botão já é o Desfazer.
   const valor = Number(valorDigitado);
-  const convite = servico && !fixado && Number.isFinite(valor) && valor > 0 && valor !== servico.precoPadrao;
+  const valorUtil = servico && Number.isFinite(valor) && valor > 0;
+  const convite = valorUtil && valor !== servico.precoPadrao && valor !== precoFixado;
+  const confirmado = valorUtil && valor === precoFixado;
 
   async function fixarPreco() {
-    setFixado(true);
+    setPrecoFixado(valor);
     await definirPrecoPadrao(servico.id, valor);
   }
 
@@ -102,20 +108,34 @@ export function FormularioEntrada() {
       rules={{ required: "Escolha ou crie um serviço." }}
     />
 
+    {/* Botão de verdade, e não texto clicável: ele precisa parecer tocável, ter
+        alvo de dedo e **dizer o valor** — "fixar este valor" não conta o que vai
+        acontecer. Mora aqui, e não no snackbar, porque lá o botão é o Desfazer. */}
     {convite && (
-      <Typography
-        component="button"
-        type="button"
+      <Button
         onClick={fixarPreco}
+        disabled={salvando}
+        startIcon={<PriceChangeRoundedIcon sx={{ fontSize: 20 }} />}
         sx={{
-          alignSelf: "flex-start", background: "none", border: "none", p: 0, cursor: "pointer",
-          fontSize: 13, fontWeight: 600, color: t.accent, textAlign: "left",
+          justifyContent: "flex-start", textAlign: "left", whiteSpace: "normal",
+          lineHeight: 1.35, px: 1.5, py: 1.15, fontSize: 13, fontWeight: 600,
+          color: t.accent, backgroundColor: alpha(t.accent, alphas.wash),
+          borderRadius: `${custom.radius.md}px`,
         }}
       >
         {servico.precoPadrao == null
-          ? `Usar este valor como preço padrão de ${servico.nome}`
-          : `Fixar este valor como novo padrão de ${servico.nome}`}
-      </Typography>
+          ? `Definir ${money(valor)} como preço padrão de ${servico.nome}`
+          : `Atualizar o preço padrão de ${servico.nome} para ${money(valor)}`}
+      </Button>
+    )}
+
+    {confirmado && (
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 0.5 }}>
+        <CheckRoundedIcon sx={{ fontSize: 18, color: t.accent }} />
+        <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
+          Preço padrão de {servico.nome} atualizado.
+        </Typography>
+      </Stack>
     )}
 
     <FormSegmented control={control} name="method" label="Forma de pagamento" options={METHOD_OPTIONS} />

@@ -679,6 +679,12 @@ botão já é o Desfazer, e dois botões num toque viram escolha difícil. Ele
 aparece quando o valor difere do padrão e some depois de aceito. Na agenda não
 existe: agendamento é previsão, e o padrão deve nascer do que foi cobrado.
 
+E é um **botão**, não um texto clicável: precisa parecer tocável, ter alvo de
+dedo e **dizer o valor** — "fixar este valor" não conta o que vai acontecer,
+"atualizar o preço padrão de Volume russo para R$ 200,00" conta. O estado
+guarda o valor fixado, e não um sim/não, para o convite voltar sozinho se ela
+mudar o preço outra vez no mesmo formulário.
+
 **A migração foi escrita à mão** (`20261003120000_catalogo_de_servicos`). O
 Prisma recusou gerá-la — proporia apagar a coluna e criar a nova `NOT NULL`,
 o que falharia com 48 registros existentes. A ordem correta cria, preenche,
@@ -856,6 +862,28 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
 
 Registradas com o motivo e com **o sinal que deveria fazer reconsiderar** — para
 a discussão não voltar daqui a meses sem o contexto.
+
+#### Trocar Postgres por MySQL ou SQLite — recusado em 2026-10-03
+
+Veio junto da ideia de um dia migrar para a AWS. São três decisões diferentes, e
+misturá-las custaria semanas sem ganho:
+
+- **Trocar de fornecedor é barato.** Sair da Neon para RDS, Aurora, Supabase ou
+  um Postgres em container é mexer na `DATABASE_URL` e no driver adapter. Schema,
+  migrações e código continuam iguais.
+- **Trocar de banco é caro e não compra nada.** MySQL exigiria reescrever as
+  migrações e revisar tipos — `Decimal` e datas se comportam diferente, e é
+  exatamente ali que moram as armadilhas 7 e 8 do CLAUDE.md.
+- **SQLite é outra categoria.** É um arquivo: serve a app local ou desktop, não
+  a várias contas atendidas por servidores que sobem e descem.
+- **AWS é decisão de operação, não de arquitetura.** Next, Prisma e Auth.js
+  rodam em container, Amplify ou OpenNext. O que muda é quanto trabalho de
+  infraestrutura passa a ser nosso — hoje, zero.
+
+**O gatilho para reconsiderar:** uma conta da AWS já paga por outro motivo, ou
+um requisito que o Postgres não atenda. Vender para terceiros **não** é gatilho:
+o que isso cobra não é o banco, e sim isolamento entre contas com gente de
+verdade, cobrança, e-mail transacional e backup com garantia.
 
 #### Next fullstack + Server Actions — recusado em 2026-08-04, **adotado em 2026-08-26**
 
