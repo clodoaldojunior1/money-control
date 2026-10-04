@@ -8,6 +8,7 @@ import { criarGasto, atualizarGasto, excluirGasto } from "../actions/gastos";
 import { criarMaterial, atualizarMaterial, excluirMaterial } from "../actions/materiais";
 import { criarAgendamento, atualizarAgendamento, excluirAgendamento } from "../actions/agenda";
 import { restaurarExemplo as restaurarExemploNoBanco, substituirDados } from "../actions/conta";
+import { atualizarPerfil, trocarSenha as trocarSenhaNoBanco } from "../actions/perfil";
 
 const AppDataContext = createContext(null);
 
@@ -36,7 +37,8 @@ const comId = (registro, converter) => ({ id: registro.id, ...converter(registro
 
 // Qual sheet o FAB abre em cada aba. Na Home ele pergunta: dali se lança tanto
 // o que entrou quanto o que saiu, e escolher um por padrão obrigaria a trocar
-// de aba para registrar o outro.
+// de aba para registrar o outro. Aba fora da lista (Configurações) não tem o
+// que lançar, e ali o FAB some.
 const SHEET_POR_ABA = {
   home: "movimentacao",
   entradas: "entrada",
@@ -272,10 +274,29 @@ export function AppDataProvider({ children, hoje, dados }) {
     });
   }, [servicos, items, materiais, agendamentos, hoje, toast, executar]);
 
-  const contextualSheet = SHEET_POR_ABA[tab] ?? "entrada";
+  /**
+   * Perfil: o desfazer regrava o que estava na tela, como numa edição comum.
+   * O "antes" sai de `conta`, que é a versão do servidor — não do formulário.
+   */
+  const salvarPerfil = useCallback((values) => {
+    const anterior = { nome: conta.nome, studio: conta.studio ?? "", whatsapp: conta.whatsapp ?? "" };
+    executar(() => atualizarPerfil(values), () => {
+      toast("Perfil atualizado", () => executar(() => atualizarPerfil(anterior)));
+    });
+  }, [conta, toast, executar]);
+
+  /** Senha não tem desfazer: o "antes" não volta do hash (`actions/perfil.js`). */
+  const trocarSenha = useCallback((values, aoConcluir) => {
+    executar(() => trocarSenhaNoBanco({ atual: values.atual, nova: values.nova }), () => {
+      aoConcluir?.();
+      toast("Senha alterada");
+    });
+  }, [toast, executar]);
+
+  const contextualSheet = SHEET_POR_ABA[tab] ?? null;
 
   const openContextualSheet = useCallback(() => {
-    openSheet(SHEET_POR_ABA[tab] ?? "entrada", null);
+    if (SHEET_POR_ABA[tab]) openSheet(SHEET_POR_ABA[tab], null);
   }, [tab, openSheet]);
 
   // — navegação de período —
@@ -344,6 +365,7 @@ export function AppDataProvider({ children, hoje, dados }) {
     drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
     restaurarExemplo, salvando,
+    salvarPerfil, trocarSenha,
     filtro, setFiltro,
     snack, undo,
 
@@ -358,6 +380,7 @@ export function AppDataProvider({ children, hoje, dados }) {
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
     restaurarExemplo, salvando,
+    salvarPerfil, trocarSenha,
     filtro, snack, undo,
     openGasto, saveGasto, removeGasto,
     openAgenda, saveAgenda, removeAgenda,

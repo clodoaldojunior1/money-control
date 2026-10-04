@@ -124,10 +124,10 @@ export async function carregarDados() {
   ]);
 
   return {
-    // A conta vai junto porque a tela mostra o nome e o studio dela. Só o que
-    // aparece na UI atravessa — hash de senha e e-mail não têm o que fazer no
-    // cliente.
-    conta: { nome: usuario.nome, studio: usuario.studio },
+    // A conta vai junto porque a tela mostra o nome e o studio dela, e
+    // Configurações edita o perfil e exibe o e-mail. Só o que aparece na UI
+    // atravessa — o hash da senha não tem o que fazer no cliente.
+    conta: { nome: usuario.nome, studio: usuario.studio, whatsapp: usuario.whatsapp, email: usuario.email },
     // O catálogo inteiro, inclusive os desativados: uma lista antiga pode
     // mostrar um serviço que ela não oferece mais, e o nome tem que aparecer.
     servicos: servicos.map(deServico),

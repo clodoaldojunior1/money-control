@@ -42,6 +42,7 @@ import { GastosTab } from "./tabs/GastosTab";
 import { AgendaTab } from "./tabs/AgendaTab";
 import { EntradasTab } from "./tabs/EntradasTab";
 import { MateriaisTab } from "./tabs/MateriaisTab";
+import { ConfigTab } from "./tabs/ConfigTab";
 
 import { GastoSheet } from "./sheets/GastoSheet";
 import { MovimentacaoSheet } from "./sheets/MovimentacaoSheet";
@@ -65,7 +66,7 @@ const MENU_ITEMS = [
   { value: "materiais", label: "Materiais", icon: Inventory2RoundedIcon },
   { value: "clientes", label: "Clientes", icon: GroupsRoundedIcon, soon: true },
   { value: "relatorios", label: "Relatórios", icon: BarChartRoundedIcon, soon: true },
-  { value: "config", label: "Configurações", icon: SettingsRoundedIcon, soon: true },
+  { value: "config", label: "Configurações", icon: SettingsRoundedIcon },
 ];
 
 // Chaveado pelo tipo de sheet (não pela aba) para não divergir do
@@ -86,6 +87,8 @@ const TAB_COMPONENTS = {
   agenda: AgendaTab,
   entradas: EntradasTab,
   materiais: MateriaisTab,
+  // Só pelo drawer: não ocupa lugar na barra de baixo, que é do dia a dia.
+  config: ConfigTab,
 };
 
 const SHEET_COMPONENTS = {
@@ -157,8 +160,9 @@ export function AppShell() {
         </Box>
 
         {/* FAB — fixo na viewport, mas alinhado à direita do container
-            centralizado. O wrapper não captura cliques; só o botão. */}
-        <Box
+            centralizado. O wrapper não captura cliques; só o botão. Some nas
+            abas sem nada a lançar (Configurações). */}
+        {fabLabel && <Box
           sx={{
             position: "fixed",
             bottom: 88,
@@ -182,7 +186,7 @@ export function AppShell() {
           >
             <AddRoundedIcon />
           </Fab>
-        </Box>
+        </Box>}
 
         {/* Bottom nav — também fixa, para não sumir ao rolar listas longas */}
         <Box
