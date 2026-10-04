@@ -91,6 +91,11 @@ estrutura.**
    navegador**, não código. Antes de investigar, abra em aba anônima: se sumir,
    é extensão. O `<html>` já tem `suppressHydrationWarning` por isso — vale só
    para os atributos dele; divergência dentro das páginas continua acusada.
+11. **`setState` depois de `await` sai da transição.** No React 19, dentro de
+   `startTransition(async …)`, o que vem após o `await` comita na hora — e a
+   Server Action responde antes do RSC do `revalidatePath` chegar. Por isso
+   `executar` reabre a transição em volta do `aoConcluir`; sem isso o sheet
+   fechava ~1,3 s antes de a lista ter o registro. Ver 5.5.
 
 ## Onde estamos
 

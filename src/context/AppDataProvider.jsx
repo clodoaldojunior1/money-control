@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, useTransition } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useTransition } from "react";
 import { BRL } from "../data/dominio";
 import { noPeriodo, periodoAnterior, periodoDe, periodoSeguinte } from "../lib/periodo";
 import { criarEntrada, atualizarEntrada, excluirEntrada } from "../actions/entradas";
@@ -69,7 +69,6 @@ export function AppDataProvider({ children, hoje, dados }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filtro, setFiltro] = useState("todos");
   const [snack, setSnack] = useState(null);
-  const snackTimer = useRef(null);
 
   // Qual sheet está aberto e qual registro ele edita (null = criação).
   // Só um sheet abre por vez, então um único `editing` cobre as 4 entidades.
@@ -80,11 +79,16 @@ export function AppDataProvider({ children, hoje, dados }) {
 
   const money = useCallback((n) => BRL(n), []);
 
-  const toast = useCallback((text, undo) => {
-    setSnack({ text, undo });
-    clearTimeout(snackTimer.current);
-    snackTimer.current = setTimeout(() => setSnack(null), 4200);
-  }, []);
+  const toast = useCallback((text, undo) => setSnack({ text, undo }), []);
+
+  // O prazo conta de quando o snackbar aparece, não de quando `toast` foi
+  // chamado: dentro de `executar` ele só comita junto com os dados novos,
+  // e um timer disparado antes gastaria esse tempo com ele ainda invisível.
+  useEffect(() => {
+    if (!snack) return;
+    const timer = setTimeout(() => setSnack(null), 4200);
+    return () => clearTimeout(timer);
+  }, [snack]);
 
   const undo = useCallback(() => {
     if (snack?.undo) snack.undo();
@@ -94,22 +98,27 @@ export function AppDataProvider({ children, hoje, dados }) {
   /**
    * Executa uma ação do servidor e trata o resultado.
    *
-   * A transição é o que mantém `salvando` verdadeiro **até a tela já ter os
-   * dados novos** — ela cobre a ida ao banco e a re-renderização que o
-   * `revalidatePath` provoca. Fechar o sheet antes disso mostraria por um
-   * instante a lista sem o registro recém-salvo.
+   * A transição mantém `salvando` verdadeiro **até a tela já ter os dados
+   * novos**: cobre a ida ao banco e também o RSC que o `revalidatePath`
+   * manda de volta. São dois tempos — a ação responde antes de o RSC
+   * terminar de chegar (medido em dev: ~1,1 s contra ~2,6 s).
+   *
+   * Por isso o segundo `iniciarTransicao`. No React 19, o que roda depois de
+   * um `await` já não pertence à transição de fora; sem ele, `closeSheet` e
+   * `toast` comitavam na resposta da ação, e por ~1,3 s a lista aparecia
+   * sem o registro, com um Desfazer na tela agindo sobre dados que ainda
+   * não tinham chegado. Dentro dela, fecham junto com a lista nova (5.5).
    *
    * Decisão registrada em 6.1: esperar a resposta em vez de atualizar
-   * otimisticamente. São 100–200ms, e evita reconciliar ids temporários.
+   * otimisticamente — evita reconciliar ids temporários.
    */
   const executar = useCallback((acao, aoConcluir) => {
     iniciarTransicao(async () => {
       const resultado = await acao();
-      if (resultado?.erro) {
-        toast(resultado.erro);
-        return;
-      }
-      aoConcluir?.(resultado);
+      iniciarTransicao(() => {
+        if (resultado?.erro) toast(resultado.erro);
+        else aoConcluir?.(resultado);
+      });
     });
   }, [toast]);
 
