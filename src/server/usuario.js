@@ -14,14 +14,20 @@ import { prisma } from "../lib/prisma";
  * é um estado a tratar: é para sair. O middleware já barra a navegação; isto
  * cobre o caso da sessão que expira **entre** a página abrir e a ação rodar —
  * o middleware não vê Server Action de rota já carregada.
+ *
+ * **Sessão órfã vai para `/api/sessao-orfa`, não para `/login`.** Token
+ * válido sem conta no banco (apagada, ou emitida contra outro branch da Neon)
+ * ainda é "logada" para o proxy, que devolveria `/login` para `/app` — um laço
+ * de redirecionamentos. Daqui não dá para apagar o cookie (Server Component não
+ * escreve cookie); aquela rota dá. Ver 5.6 do ARCHITECTURE.
  */
 export async function requireUser() {
   const sessao = await auth();
-  const id = sessao?.user?.id;
-  if (!id) redirect("/login");
+  if (!sessao?.user) redirect("/login");
 
-  const usuario = await prisma.user.findUnique({ where: { id } });
-  if (!usuario) redirect("/login"); // conta apagada com o token ainda válido
+  const id = sessao.user.id;
+  const usuario = id ? await prisma.user.findUnique({ where: { id } }) : null;
+  if (!usuario) redirect("/api/sessao-orfa");
 
   return usuario;
 }
