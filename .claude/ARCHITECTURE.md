@@ -41,6 +41,7 @@ src/
 │   ├── login/page.jsx        /login
 │   ├── cadastro/page.jsx     /cadastro (fechado — ver 5.6)
 │   ├── api/auth/[...nextauth]/  endpoints internos do Auth.js
+│   ├── api/sessao-orfa/      encerra token sem conta no banco (ver 5.6)
 │   └── app/
 │       ├── layout.jsx        Server Component; hoje só repassa (ver 5.6)
 │       └── page.jsx          /app → busca no banco → <AppRoot dados>
@@ -622,6 +623,37 @@ itera sobre ela na inicialização e, sem a chave, estoura com um
 `null` — porque quem chama está sempre dentro de `/app` ou de uma ação dele, e
 ali "sem sessão" não é estado a tratar. Ele também cobre o que o proxy não vê:
 a sessão que expira **entre** a página abrir e uma Server Action rodar.
+
+**Sessão órfã termina em `/api/sessao-orfa`.** Um JWT válido cujo `token.id`
+não existe no banco — conta apagada, ou token emitido contra outro branch da
+Neon — prendia o navegador num laço (`ERR_TOO_MANY_REDIRECTS`, visto em
+2026-10-03): o proxy vê o token e manda `/login` para `/app`; o `requireUser()`
+não acha a conta e manda `/app` para `/login`. A única saída era chamar o
+`signout` do Auth.js à mão.
+
+A causa é que **as duas camadas discordavam sobre o que é estar logada**, e só
+apagar o cookie as põe de acordo. Decidido assim:
+
+- `requireUser()` distingue os dois casos: sem sessão vai para `/login`, como
+  antes; sessão sem conta (ou sem `id`) vai para `/api/sessao-orfa`.
+- **Ele não apaga o cookie direto porque roda em Server Component**, onde
+  cookie não se escreve. Server Action até poderia, mas o `requireUser()` não
+  sabe de onde foi chamado — uma rota só serve os dois.
+- **Route handler, e não Server Action:** um `redirect()` só sabe mandar para
+  uma URL, e um GET é o que o navegador faz ao segui-la. Ali `signOut` escreve
+  o cookie e termina em `/login`, já sem sessão — o proxy deixa passar.
+- **A rota só desloga se a sessão for mesmo órfã.** É um GET, então qualquer
+  página poderia embuti-la num `<img>`; deslogar incondicionalmente seria um
+  "sair" que um estranho aperta por ela. Com a conta existindo, só devolve
+  para `/app`.
+- **Não foi no proxy** porque ele roda no edge e não consulta o banco — é
+  justamente por isso que ele confia no token. **Nem no callback `jwt`**
+  (devolver `null` invalida o token), porque esse callback também roda no
+  `auth()` do Server Component, que não consegue gravar a invalidação: o
+  cookie velho continuaria lá, e o proxy, logado.
+
+Uma falha de banco no `findUnique` lança, não devolve `null` — então um banco
+fora do ar dá erro, nunca desloga ninguém.
 
 **As regras de rota ficam no `proxy.js`, não no callback `authorized`.** A
 primeira versão devolvia `Response.redirect` de dentro daquele callback e o
