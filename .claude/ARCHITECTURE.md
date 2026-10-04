@@ -77,6 +77,7 @@ src/
 │   ├── gastos.js             (as três regras comuns estão comentadas aqui)
 │   ├── materiais.js
 │   ├── agenda.js
+│   ├── perfil.js             nome, studio, WhatsApp e troca de senha
 │   └── conta.js              restaurar exemplo e o desfazer dele (só em dev)
 │
 ├── data/
@@ -96,7 +97,8 @@ src/
     ├── AppShell.jsx          composition root: topbar, tabs, nav, FAB,
     │                         drawer, bottom sheet, snackbar
     ├── tabs/                 uma tela por aba (Home, Gastos, Agenda,
-    │                         Entradas, Materiais)
+    │                         Entradas, Materiais) e a ConfigTab, que só
+    │                         se abre pelo drawer
     ├── sheets/               os formulários em bottom sheet (Gasto, Agenda,
     │                         Entrada, Material) e o MovimentacaoSheet, que
     │                         escolhe entre entrada e gasto
@@ -788,6 +790,32 @@ se faltassem:
 O passo 2 existe porque `migrate deploy` roda sozinho: uma migração destrutiva
 não pede confirmação a ninguém.
 
+### 5.9 Configurações (perfil e senha)
+
+Existe porque trocar nome, studio ou senha exigia SQL no painel da Neon — e já
+tinha dado trabalho duas vezes. É a `ConfigTab`, aberta pelo drawer: entra no
+mesmo `tab` das outras (3.2), mas **não** na bottom nav, que é do dia a dia, e
+ali o FAB some — `SHEET_POR_ABA` não tem entrada para ela e não há o que lançar.
+
+**O e-mail é só leitura.** É a identidade do login, e sem recuperação de senha
+(6.4) um erro de digitação ali tranca a conta — a saída seria o mesmo SQL que a
+tela veio substituir.
+
+**Perfil segue o padrão de edição:** salva e oferece desfazer, que regrava o
+que estava em `conta`. O formulário usa `values`, não `defaultValues`, para
+voltar sozinho à versão do servidor — depois de salvar e depois de desfazer.
+Isso depende do segundo `startTransition` de `executar` (5.5): como o snackbar
+só aparece junto com a versão nova, não há como desfazer antes de o formulário
+ter visto a mudança. Antes dele, um desfazer rápido levava `conta` de A direto
+para A, e o formulário ficava mostrando B como alteração pendente.
+
+**Senha exige a atual e não tem desfazer.** A atual porque a sessão dura 30
+dias e um celular desbloqueado não deveria bastar para tomar a conta; sem
+desfazer porque o "antes" não volta do hash. Ela **não derruba as outras
+sessões**: com JWT não há tabela de sessões, e invalidar exigiria uma versão de
+senha no token conferida a cada requisição. O sinal para fazer isso é precisar
+expulsar um aparelho — com uma usuária e os aparelhos dela, não há.
+
 ---
 
 ## 6. Planejamento futuro
@@ -871,7 +899,7 @@ cliente, ou se o app nativo ressuscitar e houver uma API para consumir.
 ### 6.3 Módulos marcados "Em breve" no drawer
 
 Já existem como itens desabilitados em `AppShell.jsx` (`MENU_ITEMS`), aguardando
-implementação: **Clientes**, **Relatórios**, **Configurações**.
+implementação: **Clientes** e **Relatórios**. Configurações saiu da lista (5.9).
 
 ### 6.4 Itens em aberto (não decididos)
 
@@ -899,7 +927,8 @@ implementação: **Clientes**, **Relatórios**, **Configurações**.
 - **PWA de fato** — manifest, service worker, instalação. Hoje é "mobile-first",
   não instalável
 - **Gerenciar serviços** — hoje ela cria pelo formulário, mas renomear e
-  desativar só pelo banco. A tela mora bem dentro de Configurações (6.3), e o
+  desativar só pelo banco. A tela mora dentro de Configurações (5.9), que já
+  reserva o lugar com um card "Em breve", e o
   modelo já suporta as duas operações
 - **Gráfico de serviços mais prestados** — era o motivo de estruturar o
   catálogo (5.7). Com o dado amarrado, é agrupar por `servicoId`
