@@ -562,10 +562,30 @@ filtro, snackbar.
 
 **Esperar, não ser otimista** (decisão de 6.1). As ações rodam dentro de uma
 `useTransition`, e é ela que mantém `salvando` verdadeiro até a tela **já ter
-os dados novos** — não só até o banco responder. Fechar o sheet antes disso
-mostraria por um instante a lista sem o registro recém-salvo. Enquanto isso o
-botão vira "Salvando…" e o sheet fica aberto: se falhar, nada do que foi
-digitado se perde.
+os dados novos** — não só até o banco responder. Enquanto isso o botão vira
+"Salvando…" e o sheet fica aberto: se falhar, nada do que foi digitado se
+perde.
+
+**O que vem depois do `await` precisa de outro `startTransition`.** São dois
+tempos: a Server Action devolve o resultado antes de terminar de chegar o RSC
+que o `revalidatePath` manda na mesma resposta. Em dev, salvando um gasto:
+`criarGasto` ~1,1 s, `POST /app` inteiro ~2,6 s. E no React 19 os `setState`
+feitos depois de um `await` dentro de `startTransition` **não pertencem à
+transição** — ressalva documentada. Por isso `executar` chama
+`iniciarTransicao` de novo em volta do `aoConcluir`. Medido antes e depois,
+com um `MutationObserver` na tela:
+
+| | sheet fecha + snackbar | item na lista |
+|---|---|---|
+| sem o segundo `startTransition` | +1,4 s | +2,7 s |
+| com ele | +2,4 s | +2,4 s, no mesmo commit |
+
+Sem ele, por ~1,3 s a lista aparecia sem o registro **e** com um Desfazer na
+tela agindo sobre dados que ainda não tinham chegado. O sintoma enganava:
+`salvando` seguia verdadeiro nessa janela, mas o sheet já tinha fechado.
+Consequência: o prazo de 4,2 s do snackbar conta a partir de quando ele
+aparece (um efeito sobre `snack`), não de quando `toast` é chamado — o timer
+disparado na chamada gastaria a espera com ele ainda invisível.
 
 **Desfazer é a ação inversa.** Criar desfaz excluindo; excluir desfaz criando
 com o mesmo id; editar desfaz regravando os valores anteriores. Para isso o
