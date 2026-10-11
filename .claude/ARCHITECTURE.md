@@ -622,6 +622,21 @@ segundos. A trava está nos dois lados:
 aponta para o banco real. Para restaurar o ambiente de desenvolvimento,
 continuam valendo o botão no `yarn dev` e o `yarn db:seed`.
 
+**Sem rede, a Server Action rejeita — não devolve `{ erro }`.** A convenção do
+projeto (5.4) é o erro voltar como valor, e isso vale para tudo que o
+**servidor** decide: validação, escopo, regra. Mas se a requisição nem chega, a
+própria chamada lança `TypeError: Failed to fetch`, e nenhum `return { erro }`
+roda. O `executar` captura isso e o trata como `{ erro }`: toast "Sem conexão.
+Confira a internet e tente de novo.", sheet aberto, formulário intacto. Sair
+(`sairDaConta`) passa pelo mesmo caminho — sem rede a sessão **não** é
+encerrada, e ela precisa ver o aviso em vez de achar que saiu.
+
+O sintoma, antes disso, era feio: a rejeição escapava da transição e a tela
+caía na página de erro padrão do Next ("This page couldn't load"). Não é do
+navegador — é o error boundary do próprio Next, e é isso que aparece quando
+uma exceção do cliente escapa. Qualquer ação nova tem que passar por
+`executar`, nunca chamar a Server Action solta.
+
 ### 5.6 Sessão (Auth.js v5)
 
 Login por e-mail e senha, sessão em **JWT**. Não é preferência: o provider
@@ -837,11 +852,28 @@ em `sw.js` só é preciso se mudar a lista de pré-cache.
 **Registro só em produção.** Em dev o SW cacheando `/_next/static` brigaria com
 o hot reload. Por isso o teste exige `next build` + `next start`.
 
-**Como foi verificado — e o que não foi.** Build, manifest, `<head>` e os
-endpoints foram conferidos. O registro do SW **não** pôde ser testado no
-navegador embutido do app, que recusa qualquer service worker (nem um vazio,
-em outra porta, registra) — é limitação do ambiente. Falta conferir no Chrome:
-DevTools → Application → Manifest/Service Workers, e Lighthouse.
+**A página offline não depende só do cache.** A primeira versão (`nico-v1`)
+pré-cacheava com `cache.addAll`, que é tudo-ou-nada, e devolvia
+`caches.match(OFFLINE)` direto: se o item não estivesse lá, o resultado era
+`undefined` e o navegador mostrava a própria tela de erro. A `nico-v2` adiciona
+item a item (`Promise.allSettled`) e tem um HTML mínimo embutido em `sw.js`
+como último recurso. Mudou a lógica do SW? Suba `VERSAO`, ou os aparelhos
+seguem com o antigo.
+
+**Como foi verificado — e o que não foi.**
+
+- Build, manifest, `<head>` e endpoints: conferidos por `next build` +
+  `next start` e `curl`.
+- Registro e ativação do SW: confirmados em produção pelo DevTools (Application
+  → Service Workers: `nico-v2`, *activated and running*).
+- O toast de "sem conexão" ao salvar com a rede cortada: conferido na preview,
+  com o sheet aberto e o formulário preservado (5.5).
+- **Não confirmado de ponta a ponta:** a navegação offline caindo na tela do
+  Nico. O navegador embutido do app recusa qualquer service worker (nem um
+  vazio, em outra porta, registra), então não dá para testar aqui; e o
+  *Offline* do painel Network e o do painel Service Workers se comportam
+  diferente. O teste definitivo é desligar o Wi-Fi e recarregar.
+- Pendente: Lighthouse (instalabilidade).
 
 ---
 

@@ -32,7 +32,6 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 
-import { sair } from "../../actions/sessao";
 import { useColorMode } from "../../context/ColorModeProvider";
 import { useAppData } from "../../context/AppDataProvider";
 import { HeaderIconButton } from "./ui/HeaderIconButton";
@@ -109,7 +108,7 @@ export function AppShell() {
   const {
     tab, setTab, sheet, closeSheet, drawerOpen, openDrawer, closeDrawer,
     openContextualSheet, contextualSheet, snack, undo, hoje,
-    restaurarExemplo, salvando, conta,
+    restaurarExemplo, salvando, conta, sairDaConta,
   } = useAppData();
 
   const TabComponent = TAB_COMPONENTS[tab] ?? HomeTab;
@@ -280,10 +279,10 @@ export function AppShell() {
                   </Box>
                 </Button>
               )}
-              {/* `sair` é Server Action: encerra a sessão e redireciona para
-                  /login, então não há nada a fechar antes. */}
+              {/* `sairDaConta` encerra a sessão (Server Action) e redireciona
+                  para /login; sem rede, avisa em vez de falhar calada. */}
               <Button
-                onClick={() => sair()}
+                onClick={sairDaConta}
                 startIcon={<LogoutRoundedIcon sx={{ fontSize: 19 }} />}
                 sx={{ justifyContent: "flex-start", px: 1.75, py: 1.25, color: t.neutral[600] }}
               >

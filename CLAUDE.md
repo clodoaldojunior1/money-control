@@ -102,6 +102,10 @@ estrutura.**
    Server Action responde antes do RSC do `revalidatePath` chegar. Por isso
    `executar` reabre a transição em volta do `aoConcluir`; sem isso o sheet
    fechava ~1,3 s antes de a lista ter o registro. Ver 5.5.
+12. **Sem rede, Server Action rejeita; não devolve `{ erro }`.** `executar`
+   captura e vira toast "Sem conexão". Chamar a action solta deixa a exceção
+   escapar para o error boundary do Next — a tela "This page couldn't load" é
+   **dele**, não do navegador. Ver 5.5.
 
 ## Onde estamos
 
