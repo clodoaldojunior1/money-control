@@ -1,6 +1,7 @@
 import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "./providers";
 import { THEME_COLOR } from "../theme/tokens";
+import { RegistrarServiceWorker } from "../components/pwa/RegistrarServiceWorker";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -17,8 +18,10 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "Lash Studio",
+  title: "Nico",
+  applicationName: "Nico",
   description: "Gestão financeira e operacional para lash designers",
+  appleWebApp: { capable: true, title: "Nico", statusBarStyle: "default" },
 };
 
 export const viewport = {
@@ -42,6 +45,7 @@ export default function RootLayout({ children }) {
         <Providers>
           {children}
         </Providers>
+        <RegistrarServiceWorker />
       </body>
     </html>
   );

@@ -816,6 +816,33 @@ sessões**: com JWT não há tabela de sessões, e invalidar exigiria uma versã
 senha no token conferida a cada requisição. O sinal para fazer isso é precisar
 expulsar um aparelho — com uma usuária e os aparelhos dela, não há.
 
+### 5.10 PWA instalável
+
+**O que entrega:** instalar na tela inicial (Android e iOS), abrir sem barra do
+navegador em `/app`, e uma tela de "sem conexão" no lugar do erro do navegador.
+**Não** entrega uso offline — ver 6.4.
+
+**Peças:** `src/app/manifest.js` (o Next serve em `/manifest.webmanifest` e põe
+o `<link>`), `src/app/icon.svg` e `apple-icon.png` (convenção do Next),
+`public/icon-*.png` (192, 512 e maskable), `public/sw.js`, `public/offline.html`
+e `RegistrarServiceWorker` no `layout`. A marca é um N dentro de um C
+(`BrandMark` e `scripts/gerar-icones.mjs` usam a mesma geometria).
+
+**O SW cacheia pouco de propósito.** Só `/_next/static/*` (imutável, com hash)
+e os ícones, cache-primeiro. Navegação vai sempre à rede e só cai na página
+offline se ela falhar. HTML, Server Actions, RSC e API passam direto: cachear
+`/app` mostraria dados de uma sessão já encerrada. Subir a constante `VERSAO`
+em `sw.js` só é preciso se mudar a lista de pré-cache.
+
+**Registro só em produção.** Em dev o SW cacheando `/_next/static` brigaria com
+o hot reload. Por isso o teste exige `next build` + `next start`.
+
+**Como foi verificado — e o que não foi.** Build, manifest, `<head>` e os
+endpoints foram conferidos. O registro do SW **não** pôde ser testado no
+navegador embutido do app, que recusa qualquer service worker (nem um vazio,
+em outra porta, registra) — é limitação do ambiente. Falta conferir no Chrome:
+DevTools → Application → Manifest/Service Workers, e Lighthouse.
+
 ---
 
 ## 6. Planejamento futuro
@@ -924,8 +951,10 @@ implementação: **Clientes** e **Relatórios**. Configurações saiu da lista (
   controle para alterná-lo. Quando entrar, o script vai alterar o `<html>`
   antes da hidratação — o `suppressHydrationWarning` que já está lá (posto
   por causa de extensões do navegador) cobre esse caso também
-- **PWA de fato** — manifest, service worker, instalação. Hoje é "mobile-first",
-  não instalável
+- **Offline de verdade** — o PWA (5.10) é instalável e mostra uma tela de "sem
+  conexão", mas não abre sem rede: os dados vêm do servidor e são
+  autenticados. Escrever offline exigiria fila de sincronização e resolução de
+  conflito — outro projeto, e hoje ninguém pediu
 - **Gerenciar serviços** — hoje ela cria pelo formulário, mas renomear e
   desativar só pelo banco. A tela mora dentro de Configurações (5.9), que já
   reserva o lugar com um card "Em breve", e o

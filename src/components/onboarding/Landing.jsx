@@ -54,7 +54,7 @@ export function Landing() {
         <Stack direction="row" sx={{ position: "relative", alignItems: "center", justifyContent: "space-between" }}>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
             <BrandMark onAccent />
-            <Typography sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 16 }}>Lash Studio</Typography>
+            <Typography sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 16 }}>Nico</Typography>
           </Stack>
           <Button component={Link} href="/login" sx={{ color: "inherit", fontSize: 13 }}>Entrar</Button>
         </Stack>
@@ -184,7 +184,7 @@ export function Landing() {
           <MuiLink href="#" underline="hover">Termos</MuiLink>
           <MuiLink href="#" underline="hover">Privacidade</MuiLink>
           <MuiLink href="#" underline="hover">Suporte</MuiLink>
-          <Box component="span" sx={{ ml: "auto" }}>© 2026 Lash Studio</Box>
+          <Box component="span" sx={{ ml: "auto" }}>© 2026 Nico</Box>
         </Stack>
       </Stack>
     </PublicShell>

@@ -153,7 +153,7 @@ export function Register() {
 
           {recusado && (
             <Alert severity="info" sx={{ fontSize: 13 }}>
-              O cadastro ainda não está aberto — por enquanto o Lash Studio tem
+              O cadastro ainda não está aberto — por enquanto o Nico tem
               uma conta só. Se a sua já existe,{" "}
               <MuiLink component={Link} href="/login" underline="hover" sx={{ fontWeight: 600 }}>entre por aqui</MuiLink>.
             </Alert>

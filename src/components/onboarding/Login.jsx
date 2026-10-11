@@ -63,7 +63,7 @@ export function Login() {
 
       <Stack sx={{ flex: 1, justifyContent: "center", px: 3, pb: 4.25 }}>
         <Box sx={{ mb: 2.5 }}>
-          <BrandMark size={52} radius={15} fontSize={22} />
+          <BrandMark size={52} radius={15} />
         </Box>
 
         <Typography component="h1" sx={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 30, lineHeight: 1.15 }}>

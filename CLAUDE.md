@@ -1,4 +1,4 @@
-# money-control (Lash Studio)
+# money-control (Nico)
 
 PWA de gestão financeira para lash designers: entradas, gastos, materiais e agenda.
 
@@ -59,6 +59,12 @@ estrutura.**
   como "Restaurar dados de exemplo" — fica atrás de `NODE_ENV` **no cliente e
   na Server Action**: esconder o botão não basta, action é endpoint. Push na
   `main` faz deploy de produção; mudança vai por branch e preview
+
+- **PWA (5.10):** o app se chama **Nico** (nome provisório; só aparece em
+  `layout.jsx`, `Landing`, `Register`, `manifest.js` e `offline.html`).
+  `src/app/manifest.js` + `public/sw.js`, registrado só em produção por
+  `RegistrarServiceWorker`. O SW **nunca** cacheia HTML nem `/app` — só
+  `/_next/static` e ícones. Os ícones saem de `scripts/gerar-icones.mjs`
 
 ## Armadilhas que já nos morderam
 
