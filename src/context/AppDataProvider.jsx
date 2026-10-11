@@ -9,6 +9,7 @@ import { criarMaterial, atualizarMaterial, excluirMaterial } from "../actions/ma
 import { criarAgendamento, atualizarAgendamento, excluirAgendamento } from "../actions/agenda";
 import { restaurarExemplo as restaurarExemploNoBanco, substituirDados } from "../actions/conta";
 import { atualizarPerfil, trocarSenha as trocarSenhaNoBanco } from "../actions/perfil";
+import { sair } from "../actions/sessao";
 
 const AppDataContext = createContext(null);
 
@@ -113,10 +114,20 @@ export function AppDataProvider({ children, hoje, dados }) {
    *
    * Decisão registrada em 6.1: esperar a resposta em vez de atualizar
    * otimisticamente — evita reconciliar ids temporários.
+   *
+   * **Erro de rede é tratado aqui.** Sem conexão, a Server Action não devolve
+   * `{ erro }`: a própria chamada rejeita (`Failed to fetch`). Sem o `catch`
+   * a rejeição escapava, o sheet ficava parado e a usuária não via nada. O
+   * sheet segue aberto — o formulário não perde o que ela digitou.
    */
   const executar = useCallback((acao, aoConcluir) => {
     iniciarTransicao(async () => {
-      const resultado = await acao();
+      let resultado;
+      try {
+        resultado = await acao();
+      } catch {
+        resultado = { erro: "Sem conexão. Confira a internet e tente de novo." };
+      }
       iniciarTransicao(() => {
         if (resultado?.erro) toast(resultado.erro);
         else aoConcluir?.(resultado);
@@ -293,6 +304,15 @@ export function AppDataProvider({ children, hoje, dados }) {
     });
   }, [toast, executar]);
 
+  /**
+   * Sair passa por `executar` para herdar o tratamento de rede: sem conexão a
+   * sessão **não** é encerrada, e a usuária precisa saber disso.
+   */
+  const sairDaConta = useCallback(() => {
+    setDrawerOpen(false);
+    executar(() => sair());
+  }, [executar]);
+
   const contextualSheet = SHEET_POR_ABA[tab] ?? null;
 
   const openContextualSheet = useCallback(() => {
@@ -365,7 +385,7 @@ export function AppDataProvider({ children, hoje, dados }) {
     drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
     restaurarExemplo, salvando,
-    salvarPerfil, trocarSenha,
+    salvarPerfil, trocarSenha, sairDaConta,
     filtro, setFiltro,
     snack, undo,
 
@@ -380,7 +400,7 @@ export function AppDataProvider({ children, hoje, dados }) {
     tab, sheet, editing, drawerOpen, openDrawer, closeDrawer, closeSheet,
     openContextualSheet, contextualSheet,
     restaurarExemplo, salvando,
-    salvarPerfil, trocarSenha,
+    salvarPerfil, trocarSenha, sairDaConta,
     filtro, snack, undo,
     openGasto, saveGasto, removeGasto,
     openAgenda, saveAgenda, removeAgenda,
